@@ -636,7 +636,7 @@
 
         .statistics-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
             gap: 12px;
         }
 
@@ -653,6 +653,10 @@
             border-left-color: rgba(239, 68, 68, 0.6);
         }
 
+        .stat-item.slightly {
+            border-left-color: rgba(251, 146, 60, 0.6);
+        }
+
         .stat-item.human {
             border-left-color: rgba(34, 197, 94, 0.6);
         }
@@ -664,13 +668,17 @@
         }
 
         .stat-value {
-            font-size: 1.8em;
+            font-size: 1.2em;
             font-weight: 700;
             color: #fff;
         }
 
         .stat-item.ai .stat-value {
             color: #f093fb;
+        }
+
+        .stat-item.slightly .stat-value {
+            color: #fb923c;
         }
 
         .stat-item.human .stat-value {
@@ -840,6 +848,10 @@
                                         <div class="stat-label">AI-Generated</div>
                                         <div class="stat-value" id="aiPercentage">—</div>
                                     </div>
+                                    <div class="stat-item slightly">
+                                        <div class="stat-label">Slightly AI</div>
+                                        <div class="stat-value" id="slightlyAiPercentage">—</div>
+                                    </div>
                                     <div class="stat-item human">
                                         <div class="stat-label">Human-Written</div>
                                         <div class="stat-value" id="humanPercentage">—</div>
@@ -943,6 +955,7 @@
         const highlightedText = document.getElementById('highlightedText');
         const statisticsContainer = document.getElementById('statisticsContainer');
         const aiPercentage = document.getElementById('aiPercentage');
+        const slightlyAiPercentage = document.getElementById('slightlyAiPercentage');
         const humanPercentage = document.getElementById('humanPercentage');
 
         let currentText = '';
@@ -1081,8 +1094,10 @@
             });
 
             // Display statistics if available (for text analysis)
+            // Display statistics if available (for text analysis)
             if (statistics) {
-                aiPercentage.textContent = `${statistics.total_ai_percentage}%`;
+                aiPercentage.textContent = `${statistics.ai_percentage}%`;
+                slightlyAiPercentage.textContent = `${statistics.slightly_ai_percentage}%`;
                 humanPercentage.textContent = `${statistics.human_percentage}%`;
                 statisticsContainer.style.display = 'block';
             } else {
