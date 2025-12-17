@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Detector</title>
+    <title>Trure Origin AI - Image & Text</title>
     <style>
         * {
             margin: 0;
@@ -60,6 +60,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 18px;
             padding: 18px;
+            -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         }
@@ -162,6 +163,7 @@
             justify-content: center;
             flex-direction: column;
             background: rgba(15, 15, 35, 0.65);
+            -webkit-backdrop-filter: blur(2px);
             backdrop-filter: blur(2px);
             animation: fadeIn 0.2s ease-out;
         }
@@ -336,6 +338,345 @@
             display: none;
         }
 
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #a0a0b0;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.06);
+            color: #e0e0e0;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        /* Text Detector Styles */
+        .text-input-area {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px dashed rgba(102, 126, 234, 0.35);
+            border-radius: 16px;
+            padding: 20px;
+            min-height: 200px;
+            margin-bottom: 16px;
+        }
+
+        .text-input-area textarea {
+            width: 100%;
+            min-height: 180px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            color: #e0e0e0;
+            font-size: 0.95em;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .text-input-area textarea:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .text-input-area textarea::placeholder {
+            color: #6a6a7a;
+        }
+
+        .text-divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #a0a0b0;
+            font-size: 0.9em;
+            position: relative;
+        }
+
+        .text-divider::before,
+        .text-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .text-divider::before {
+            left: 0;
+        }
+
+        .text-divider::after {
+            right: 0;
+        }
+
+        .text-file-upload {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px dashed rgba(102, 126, 234, 0.35);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .text-file-upload:hover {
+            border-color: rgba(102, 126, 234, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .text-file-upload.drag-over {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            transform: scale(1.01);
+        }
+
+        .text-preview {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .text-preview-content {
+            color: #c0c0d0;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.9em;
+        }
+
+        .analyze-btn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            box-shadow: 0 5px 18px rgba(102, 126, 234, 0.28);
+        }
+
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px rgba(102, 126, 234, 0.38);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Highlighted Text Display */
+        .highlighted-text-container {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 16px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .highlighted-text-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .highlighted-text-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .highlighted-text-container::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        .highlighted-text-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        .highlighted-text {
+            color: #e0e0e0;
+            line-height: 1.8;
+            font-size: 0.95em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 4px 2px;
+        }
+
+        .text-segment {
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: opacity 0.2s ease;
+        }
+
+        .text-segment.ai-generated {
+            background-color: rgba(239, 68, 68, 0.3);
+            border-left: 3px solid rgba(239, 68, 68, 0.6);
+        }
+
+        .text-segment.slightly-ai {
+            background-color: rgba(251, 146, 60, 0.3);
+            border-left: 3px solid rgba(251, 146, 60, 0.6);
+        }
+
+        .text-segment.human-written {
+            background-color: rgba(34, 197, 94, 0.3);
+            border-left: 3px solid rgba(34, 197, 94, 0.6);
+        }
+
+        .highlighted-text-title {
+            font-size: 1.05em;
+            margin-bottom: 12px;
+            font-weight: 700;
+            color: #dcdcf5;
+            letter-spacing: 0.3px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border-left: 3px solid;
+        }
+
+        .legend-color.ai {
+            background-color: rgba(239, 68, 68, 0.3);
+            border-left-color: rgba(239, 68, 68, 0.6);
+        }
+
+        .legend-color.slightly {
+            background-color: rgba(251, 146, 60, 0.3);
+            border-left-color: rgba(251, 146, 60, 0.6);
+        }
+
+        .legend-color.human {
+            background-color: rgba(34, 197, 94, 0.3);
+            border-left-color: rgba(34, 197, 94, 0.6);
+        }
+
+        /* Statistics Display */
+        .statistics {
+            margin-top: 18px;
+            margin-bottom: 18px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .statistics h4 {
+            font-size: 1.05em;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .statistics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border-left: 3px solid;
+        }
+
+        .stat-item.ai {
+            border-left-color: rgba(239, 68, 68, 0.6);
+        }
+
+        .stat-item.human {
+            border-left-color: rgba(34, 197, 94, 0.6);
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #a0a0b0;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-item.ai .stat-value {
+            color: #f093fb;
+        }
+
+        .stat-item.human .stat-value {
+            color: #4ade80;
+        }
+
         @keyframes fadeInDown {
             from {
                 opacity: 0;
@@ -418,30 +759,66 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 AI Image Detector</h1>
-            <p>Upload and review results in one compact view</p>
+            <h1>🔍 Trure Origin AI</h1>
+            <p>Detect AI-generated images and text content</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" id="imageTab">📸 Image Detector</button>
+            <button class="nav-tab" id="textTab">📝 Text Detector</button>
         </div>
 
         <div class="main-layout">
-            <div class="card">
-                <div class="panel-title">Upload or drop an image</div>
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-icon">📸</div>
-                    <div class="upload-text">
-                        <h3>Drop your image here</h3>
-                        <p>or click to browse • Supports JPG, PNG, WEBP, GIF</p>
-                    </div>
-                    <input type="file" id="fileInput" accept="image/*">
-                </div>
-
-                <div class="preview-section" id="previewSection">
-                    <div class="panel-title" style="margin-top:14px;">Preview</div>
-                    <div class="image-preview">
-                        <img id="previewImage" class="preview-image" alt="Preview">
-                        <div class="loading" id="loading">
-                            <div class="spinner"></div>
-                            <div class="loading-text">Analyzing image...</div>
+            <!-- Image Detector Tab -->
+            <div class="tab-content active" id="imageDetectorTab">
+                <div class="card">
+                    <div class="panel-title">Upload or drop an image</div>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📸</div>
+                        <div class="upload-text">
+                            <h3>Drop your image here</h3>
+                            <p>or click to browse • Supports JPG, PNG, WEBP, GIF</p>
                         </div>
+                        <input type="file" id="fileInput" accept="image/*">
+                    </div>
+
+                    <div class="preview-section" id="previewSection">
+                        <div class="panel-title" style="margin-top:14px;">Preview</div>
+                        <div class="image-preview">
+                            <img id="previewImage" class="preview-image" alt="Preview">
+                            <div class="loading" id="loading">
+                                <div class="spinner"></div>
+                                <div class="loading-text">Analyzing image...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Detector Tab -->
+            <div class="tab-content" id="textDetectorTab">
+                <div class="card">
+                    <div class="panel-title">Paste text or upload a document</div>
+                    <div class="text-input-area">
+                        <textarea id="textInput" placeholder="Paste your text here to analyze if it's AI-generated..."></textarea>
+                    </div>
+                    <div class="text-divider">OR</div>
+                    <div class="text-file-upload" id="textFileUpload">
+                        <div class="upload-icon">📄</div>
+                        <div class="upload-text">
+                            <h3>Drop your document here</h3>
+                            <p>or click to browse • Supports PDF, DOCX, PPT, TXT</p>
+                        </div>
+                        <input type="file" id="textFileInput" accept=".pdf,.docx,.ppt,.pptx,.txt">
+                    </div>
+                    <div class="text-preview" id="textPreview" style="display: none;">
+                        <div class="panel-title" style="margin-top:0; margin-bottom:8px;">Document Preview</div>
+                        <div class="text-preview-content" id="textPreviewContent"></div>
+                    </div>
+                    <button class="analyze-btn" id="analyzeTextBtn" disabled>Analyze Text</button>
+                    <div class="loading" id="textLoading" style="position: relative; margin-top: 16px; min-height: 60px;">
+                        <div class="spinner" style="position: relative; margin: 0 auto;"></div>
+                        <div class="loading-text">Analyzing text...</div>
                     </div>
                 </div>
             </div>
@@ -456,6 +833,20 @@
                                 <div class="confidence-badge" id="confidenceBadge">—</div>
                             </div>
 
+                            <div class="statistics" id="statisticsContainer" style="display: none;">
+                                <h4>Text Composition</h4>
+                                <div class="statistics-grid">
+                                    <div class="stat-item ai">
+                                        <div class="stat-label">AI-Generated</div>
+                                        <div class="stat-value" id="aiPercentage">—</div>
+                                    </div>
+                                    <div class="stat-item human">
+                                        <div class="stat-label">Human-Written</div>
+                                        <div class="stat-value" id="humanPercentage">—</div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="reasoning">
                                 <h4>Analysis</h4>
                                 <p id="reasoningText">—</p>
@@ -464,6 +855,25 @@
                             <div class="details">
                                 <h4>Key Observations</h4>
                                 <div id="detailsList"></div>
+                            </div>
+
+                            <div class="highlighted-text-container" id="highlightedTextContainer" style="display: none;">
+                                <div class="highlighted-text-title">Highlighted Text Analysis</div>
+                                <div class="legend">
+                                    <div class="legend-item">
+                                        <div class="legend-color ai"></div>
+                                        <span>AI-Generated</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color slightly"></div>
+                                        <span>Slightly AI</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color human"></div>
+                                        <span>Human-Written</span>
+                                    </div>
+                                </div>
+                                <div class="highlighted-text" id="highlightedText"></div>
                             </div>
                         </div>
 
@@ -474,7 +884,7 @@
                     </div>
 
                     <div class="placeholder" id="placeholderText">
-                        Upload an image to preview it and see detection results here.
+                        Upload an image or paste text to see detection results here.
                     </div>
                 </div>
             </div>
@@ -482,11 +892,45 @@
     </div>
 
     <script>
+        // Tab switching
+        const imageTab = document.getElementById('imageTab');
+        const textTab = document.getElementById('textTab');
+        const imageDetectorTab = document.getElementById('imageDetectorTab');
+        const textDetectorTab = document.getElementById('textDetectorTab');
+
+        imageTab.addEventListener('click', () => {
+            imageTab.classList.add('active');
+            textTab.classList.remove('active');
+            imageDetectorTab.classList.add('active');
+            textDetectorTab.classList.remove('active');
+            resetAll();
+        });
+
+        textTab.addEventListener('click', () => {
+            textTab.classList.add('active');
+            imageTab.classList.remove('active');
+            textDetectorTab.classList.add('active');
+            imageDetectorTab.classList.remove('active');
+            resetAll();
+        });
+
+        // Image Detector Elements
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const previewSection = document.getElementById('previewSection');
         const previewImage = document.getElementById('previewImage');
         const loading = document.getElementById('loading');
+        
+        // Text Detector Elements
+        const textInput = document.getElementById('textInput');
+        const textFileUpload = document.getElementById('textFileUpload');
+        const textFileInput = document.getElementById('textFileInput');
+        const textPreview = document.getElementById('textPreview');
+        const textPreviewContent = document.getElementById('textPreviewContent');
+        const analyzeTextBtn = document.getElementById('analyzeTextBtn');
+        const textLoading = document.getElementById('textLoading');
+        
+        // Shared Elements
         const results = document.getElementById('results');
         const classificationLabel = document.getElementById('classificationLabel');
         const confidenceBadge = document.getElementById('confidenceBadge');
@@ -495,6 +939,31 @@
         const analyzeAnother = document.getElementById('analyzeAnother');
         const clearResults = document.getElementById('clearResults');
         const placeholderText = document.getElementById('placeholderText');
+        const highlightedTextContainer = document.getElementById('highlightedTextContainer');
+        const highlightedText = document.getElementById('highlightedText');
+        const statisticsContainer = document.getElementById('statisticsContainer');
+        const aiPercentage = document.getElementById('aiPercentage');
+        const humanPercentage = document.getElementById('humanPercentage');
+
+        let currentText = '';
+
+        function resetAll() {
+            fileInput.value = '';
+            previewImage.src = '';
+            previewSection.classList.remove('active');
+            textInput.value = '';
+            textFileInput.value = '';
+            textPreview.style.display = 'none';
+            textPreviewContent.textContent = '';
+            analyzeTextBtn.disabled = true;
+            textLoading.classList.remove('active');
+            loading.classList.remove('active');
+            results.classList.remove('active');
+            highlightedTextContainer.style.display = 'none';
+            highlightedText.innerHTML = '';
+            statisticsContainer.style.display = 'none';
+            showPlaceholder();
+        }
 
         function showPlaceholder(message = 'Upload an image to preview it and see detection results here.') {
             placeholderText.textContent = message;
@@ -566,6 +1035,8 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    highlightedTextContainer.style.display = 'none';
+                    statisticsContainer.style.display = 'none';
                     displayResults(data.result);
                 } else {
                     alert('Error analyzing image');
@@ -580,13 +1051,25 @@
             }
         }
 
-        function displayResults(result) {
-            const isAI = result.classification.toLowerCase().includes('ai');
-            
-            classificationLabel.textContent = result.classification;
-            classificationLabel.className = `classification-label ${isAI ? 'ai' : 'real'}`;
-            
-            confidenceBadge.textContent = `${result.confidence}% Confidence`;
+        function displayResults(result, originalText = null, segments = null, statistics = null) {
+            const isTextAnalysis = !!statistics;
+
+            // For image detector: show classification + confidence
+            if (!isTextAnalysis) {
+                const isAI = result.classification.toLowerCase().includes('ai');
+                
+                classificationLabel.textContent = result.classification;
+                classificationLabel.className = `classification-label ${isAI ? 'ai' : 'real'}`;
+                
+                confidenceBadge.textContent = `${result.confidence}% Confidence`;
+                classificationLabel.style.display = '';
+                confidenceBadge.style.display = '';
+            } else {
+                // For text detector: hide classification + confidence badge
+                classificationLabel.style.display = 'none';
+                confidenceBadge.style.display = 'none';
+            }
+
             reasoningText.textContent = result.reasoning;
 
             detailsList.innerHTML = '';
@@ -597,8 +1080,71 @@
                 detailsList.appendChild(item);
             });
 
+            // Display statistics if available (for text analysis)
+            if (statistics) {
+                aiPercentage.textContent = `${statistics.total_ai_percentage}%`;
+                humanPercentage.textContent = `${statistics.human_percentage}%`;
+                statisticsContainer.style.display = 'block';
+            } else {
+                statisticsContainer.style.display = 'none';
+            }
+
+            // Display highlighted text if segments are available
+            if (segments && originalText && segments.length > 0) {
+                renderHighlightedText(originalText, segments);
+                highlightedTextContainer.style.display = 'block';
+            } else {
+                highlightedTextContainer.style.display = 'none';
+            }
+
             results.classList.add('active');
             hidePlaceholder();
+        }
+
+        function renderHighlightedText(originalText, segments) {
+            // Sort segments by start position
+            const sortedSegments = [...segments].sort((a, b) => a.start - b.start);
+            
+            let html = '';
+            let lastIndex = 0;
+            
+            sortedSegments.forEach((segment, index) => {
+                // Add text before this segment
+                if (segment.start > lastIndex) {
+                    const beforeText = originalText.substring(lastIndex, segment.start);
+                    html += escapeHtml(beforeText);
+                }
+                
+                // Add the highlighted segment
+                const segmentText = originalText.substring(segment.start, segment.end);
+                const classification = segment.classification.toLowerCase();
+                
+                let className = 'text-segment ';
+                if (classification.includes('ai-generated') || classification.includes('ai generated')) {
+                    className += 'ai-generated';
+                } else if (classification.includes('slightly') || classification.includes('slightly-ai')) {
+                    className += 'slightly-ai';
+                } else {
+                    className += 'human-written';
+                }
+                
+                html += `<span class="${className}" title="Confidence: ${segment.confidence}%">${escapeHtml(segmentText)}</span>`;
+                
+                lastIndex = segment.end;
+            });
+            
+            // Add remaining text after last segment
+            if (lastIndex < originalText.length) {
+                html += escapeHtml(originalText.substring(lastIndex));
+            }
+            
+            highlightedText.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         analyzeAnother.addEventListener('click', () => {
@@ -610,11 +1156,133 @@
         });
 
         clearResults.addEventListener('click', () => {
-            fileInput.value = '';
-            previewImage.src = '';
-            previewSection.classList.remove('active');
+            resetAll();
+        });
+
+        // Text Detector Functionality
+        textInput.addEventListener('input', (e) => {
+            currentText = e.target.value.trim();
+            analyzeTextBtn.disabled = !currentText;
+            if (currentText) {
+                textPreview.style.display = 'block';
+                textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+            } else {
+                textPreview.style.display = 'none';
+            }
+        });
+
+        // Text file upload click
+        textFileUpload.addEventListener('click', () => textFileInput.click());
+
+        // Text file input change
+        textFileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                await handleTextFile(e.target.files[0]);
+            }
+        });
+
+        // Text file drag and drop
+        textFileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            textFileUpload.classList.add('drag-over');
+        });
+
+        textFileUpload.addEventListener('dragleave', () => {
+            textFileUpload.classList.remove('drag-over');
+        });
+
+        textFileUpload.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            textFileUpload.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                await handleTextFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        async function handleTextFile(file) {
+            const allowedTypes = ['.pdf', '.docx', '.ppt', '.pptx', '.txt'];
+            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedTypes.includes(fileExt)) {
+                alert('Please upload a PDF, DOCX, PPT, or TXT file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                textLoading.classList.add('active');
+                analyzeTextBtn.disabled = true;
+
+                // Extract text from file
+                const extractResponse = await fetch('/extract-text', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const extractData = await extractResponse.json();
+
+                if (extractData.success) {
+                    currentText = extractData.text;
+                    textInput.value = currentText;
+                    textPreview.style.display = 'block';
+                    textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+                    analyzeTextBtn.disabled = false;
+                } else {
+                    alert('Error extracting text from file: ' + (extractData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error processing file. Please try again.');
+            } finally {
+                textLoading.classList.remove('active');
+            }
+        }
+
+        // Analyze text button
+        analyzeTextBtn.addEventListener('click', async () => {
+            if (!currentText) {
+                alert('Please enter or upload text to analyze');
+                return;
+            }
+
+            textLoading.classList.add('active');
+            analyzeTextBtn.disabled = true;
+            hidePlaceholder();
             results.classList.remove('active');
-            showPlaceholder();
+            showPlaceholder('Analyzing text...');
+
+            try {
+                const response = await fetch('/analyze-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: currentText })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(
+                        data.result, 
+                        data.original_text || currentText, 
+                        data.segments || null,
+                        data.statistics || null
+                    );
+                } else {
+                    alert('Error analyzing text');
+                    showPlaceholder('Unable to analyze the text. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error analyzing text. Please try again.');
+                showPlaceholder('Error analyzing the text. Please try again.');
+            } finally {
+                textLoading.classList.remove('active');
+                analyzeTextBtn.disabled = false;
+            }
         });
     </script>
 </body>

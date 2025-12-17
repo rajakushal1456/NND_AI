@@ -1,5 +1,6 @@
 /venv
 /image
-main.py
 .env
 /env
+/local_files
+.cursorignore
