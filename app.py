@@ -242,20 +242,143 @@ async def analyze_image(file: UploadFile = File(...)) -> JSONResponse:
                         {
                             "type": "text",
                             "text": """
-                            Your task is to determine whether the image is AI-generated or captured by a real camera.
-                            if(person in image){
-                            If the skin tone appears overly uniform, smooth, and consistent across different areas, classify the image as AI-generated.
-                            If the skin shows natural imperfections such as dark spots, blemishes, texture variations, or uneven tone, classify it as a real image.
-                            }
-                            else{
-                               If the composition is unrealistically perfect with flawless symmetry, overly uniform lighting throughout all interior spaces, and an idealized presentation that lacks the natural imperfections of real photography. The textures, reflections, and material rendering show the characteristic smoothness and consistency typical of AI-generated imagery.  
-                            }
-                            Respond ONLY with a JSON object in this exact format:
+                            Primary Rule (OVERRIDES EVERYTHING)
+
+                            If an image plausibly matches a known AI-generation style AND no explicit, provable real-camera metadata or irreversible capture errors are visible, the image MUST be classified as AI-Generated.
+
+                            The system must fail closed, not open.
+
+                            Step 0: Scene Type Lock (MANDATORY)
+
+                            First, classify the scene:
+
+                            Nightclub / concert / party
+
+                            Cinematic low-light portrait
+
+                            Social-media-optimized candid
+
+                            Fashion / lifestyle event
+
+                            ➡️ If YES to any → mark as LOCKED HIGH-AI SCENE.
+
+                            For LOCKED HIGH-AI SCENES:
+
+                            “Real Image” is DISALLOWED by default
+
+                            Burden of proof is on disproving AI, not proving realism
+
+                            Step 1: Forbidden Evidence List
+
+                            The following CANNOT be used as proof of a real image under any circumstances:
+
+                            “Sensor noise”
+
+                            “Autofocus hunting”
+
+                            “Lens distortion”
+
+                            “Overexposure / bloom”
+
+                            “Motion blur destroying fingers”
+
+                            “Awkward cropping”
+
+                            “Unflattering composition”
+
+                            “Crowd chaos”
+
+                            “Candid moment”
+
+                            “Event photography failure”
+
+                            👉 These are NON-EVIDENCE because AI can simulate all of them.
+
+                            If your reasoning relies on any of the above →
+                            ⛔ FORCE AI-Generated classification
+
+                            Step 2: Disallowed Inference Rule
+
+                            You are NOT ALLOWED to infer:
+
+                            Camera brand behavior
+
+                            Sensor grain authenticity
+
+                            Autofocus logic
+
+                            Optical bloom physics
+
+                            Unless:
+
+                            EXIF metadata is explicitly visible (not inferred)
+
+                            Or a mechanical failure exists that breaks semantic coherence (e.g., impossible geometry)
+
+                            If inference is required → classify as AI-Generated
+
+                            Step 3: Identity Preservation Trap
+
+                            Modern AI preserves identity even under simulated failure.
+
+                            Therefore:
+
+                            If the subject’s face, body proportions, clothing identity, and scene intent remain clearly readable,
+                            then motion blur, noise, or lighting artifacts DO NOT qualify as real-world failures.
+
+                            ➡️ This is a synthetic realism signature
+                            ➡️ Classify as AI-Generated
+
+                            Step 4: Aesthetic Survival Test (CRITICAL)
+
+                            Ask this question:
+
+                            “Despite all claimed defects, is the image still visually usable, expressive, and socially postable?”
+
+                            If YES →
+                            This indicates engineered imperfection, not accidental capture.
+
+                            ➡️ Classify as AI-Generated
+
+                            Real failed photos are often discarded, not showcased.
+
+                            Step 5: Explanation Pattern Detection
+
+                            If the analysis:
+
+                            Sounds like a photography critique
+
+                            Defends realism aggressively
+
+                            Lists many justifications without hard disproof of AI
+
+                            ➡️ Treat the explanation itself as AI-bias evidence
+
+                            ➡️ Classify as AI-Generated
+
+                            Step 6: Final Decision Logic (NON-NEGOTIABLE)
+
+                            For LOCKED HIGH-AI SCENES:
+
+                            If no direct, undeniable, non-simulatable proof of real capture exists
+
+                            OR if reasoning depends on interpretive camera behavior
+
+                            ➡️ FINAL CLASSIFICATION: AI-Generated
+
+                            Output Format (STRICT)
+
+                            Respond ONLY with:
+
                             {
-                                "classification": "AI-Generated" or "Real Image",
-                                "confidence": 85,
-                                "reasoning": "Brief explanation of your analysis",
-                                "details": ["Key observation 1", "Key observation 2", "Key observation 3"]
+                            "classification": "AI-Generated",
+                            "confidence": 85,
+                            "reasoning": "Scene matches a locked high-AI-risk category and relies on speculative camera artifacts and aesthetic-surviving imperfections, which are fully simulatable by modern image generation models.",
+                            "details": [
+                                "Nightclub scene identified as high-risk AI style",
+                                "Claimed camera artifacts are inferential and non-verifiable",
+                                "Image retains full semantic and aesthetic coherence despite supposed failures"
+                            ]
                             }
                             """
                         }
