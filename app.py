@@ -12,7 +12,8 @@ from anthropic import Anthropic
 import os
 from dotenv import load_dotenv
 import io
-
+from prompts import IMAGE_PROMPT,VIDEO_PROMPT, ANALYZE_TEXT_SEGMENT_PROMPT,ANALYZE_TEXT_CHUNK_PROMPT
+from config import SUPPORTED_MIME_TYPES,SUPPORTED_TEXT_TYPES,SUPPORTED_VIDEO_TYPES
 # Load environment variables
 load_dotenv()
 
@@ -34,20 +35,6 @@ ANTHROPIC_API_KEY = os.getenv(
 )
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
-SUPPORTED_MIME_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/gif"
-}
-
-SUPPORTED_TEXT_TYPES = {
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-    "application/vnd.ms-powerpoint",  # .ppt
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
-    "text/plain"  # .txt
-}
 
 class TextAnalysisRequest(BaseModel):
     text: str
@@ -241,146 +228,7 @@ async def analyze_image(file: UploadFile = File(...)) -> JSONResponse:
                         },
                         {
                             "type": "text",
-                            "text": """
-                            Primary Rule (OVERRIDES EVERYTHING)
-
-                            If an image plausibly matches a known AI-generation style AND no explicit, provable real-camera metadata or irreversible capture errors are visible, the image MUST be classified as AI-Generated.
-
-                            The system must fail closed, not open.
-
-                            Step 0: Scene Type Lock (MANDATORY)
-
-                            First, classify the scene:
-
-                            Nightclub / concert / party
-
-                            Cinematic low-light portrait
-
-                            Social-media-optimized candid
-
-                            Fashion / lifestyle event
-
-                            ➡️ If YES to any → mark as LOCKED HIGH-AI SCENE.
-
-                            For LOCKED HIGH-AI SCENES:
-
-                            “Real Image” is DISALLOWED by default
-
-                            Burden of proof is on disproving AI, not proving realism
-
-                            Step 1: Forbidden Evidence List
-
-                            The following CANNOT be used as proof of a real image under any circumstances:
-
-                            “Sensor noise”
-
-                            “Autofocus hunting”
-
-                            “Lens distortion”
-
-                            “Overexposure / bloom”
-
-                            “Motion blur destroying fingers”
-
-                            “Awkward cropping”
-
-                            “Unflattering composition”
-
-                            “Crowd chaos”
-
-                            “Candid moment”
-
-                            “Event photography failure”
-
-                            👉 These are NON-EVIDENCE because AI can simulate all of them.
-
-                            If your reasoning relies on any of the above →
-                            ⛔ FORCE AI-Generated classification
-
-                            Step 2: Disallowed Inference Rule
-
-                            You are NOT ALLOWED to infer:
-
-                            Camera brand behavior
-
-                            Sensor grain authenticity
-
-                            Autofocus logic
-
-                            Optical bloom physics
-
-                            Unless:
-
-                            EXIF metadata is explicitly visible (not inferred)
-
-                            Or a mechanical failure exists that breaks semantic coherence (e.g., impossible geometry)
-
-                            If inference is required → classify as AI-Generated
-
-                            Step 3: Identity Preservation Trap
-
-                            Modern AI preserves identity even under simulated failure.
-
-                            Therefore:
-
-                            If the subject’s face, body proportions, clothing identity, and scene intent remain clearly readable,
-                            then motion blur, noise, or lighting artifacts DO NOT qualify as real-world failures.
-
-                            ➡️ This is a synthetic realism signature
-                            ➡️ Classify as AI-Generated
-
-                            Step 4: Aesthetic Survival Test (CRITICAL)
-
-                            Ask this question:
-
-                            “Despite all claimed defects, is the image still visually usable, expressive, and socially postable?”
-
-                            If YES →
-                            This indicates engineered imperfection, not accidental capture.
-
-                            ➡️ Classify as AI-Generated
-
-                            Real failed photos are often discarded, not showcased.
-
-                            Step 5: Explanation Pattern Detection
-
-                            If the analysis:
-
-                            Sounds like a photography critique
-
-                            Defends realism aggressively
-
-                            Lists many justifications without hard disproof of AI
-
-                            ➡️ Treat the explanation itself as AI-bias evidence
-
-                            ➡️ Classify as AI-Generated
-
-                            Step 6: Final Decision Logic (NON-NEGOTIABLE)
-
-                            For LOCKED HIGH-AI SCENES:
-
-                            If no direct, undeniable, non-simulatable proof of real capture exists
-
-                            OR if reasoning depends on interpretive camera behavior
-
-                            ➡️ FINAL CLASSIFICATION: AI-Generated
-
-                            Output Format (STRICT)
-
-                            Respond ONLY with:
-
-                            {
-                            "classification": "AI-Generated",
-                            "confidence": 85,
-                            "reasoning": "Scene matches a locked high-AI-risk category and relies on speculative camera artifacts and aesthetic-surviving imperfections, which are fully simulatable by modern image generation models.",
-                            "details": [
-                                "Nightclub scene identified as high-risk AI style",
-                                "Claimed camera artifacts are inferential and non-verifiable",
-                                "Image retains full semantic and aesthetic coherence despite supposed failures"
-                            ]
-                            }
-                            """
+                            "text": IMAGE_PROMPT
                         }
                     ]
                 }
@@ -487,24 +335,7 @@ async def analyze_text_segment(segment: str) -> Dict:
         messages=[
             {
                 "role": "user",
-                "content": f"""
-                Analyze this text segment and determine if it's AI-generated or human-written.
-                
-                Consider:
-                - AI patterns: overly formal, repetitive structures, lack of personal voice, generic phrasing
-                - Human patterns: varied sentence structure, personal touches, natural flow, specific details
-                
-                Text segment:
-                {segment}
-                
-                Respond ONLY with a JSON object:
-                {{
-                    "classification": "AI-Generated", "Slightly-AI", or "Human-Written",
-                    "confidence": 85
-                }}
-                
-                Use "Slightly-AI" if the text shows some AI characteristics but also has human elements.
-                """
+                "content": ANALYZE_TEXT_SEGMENT_PROMPT.format(segment=segment)
             }
         ]
     )
@@ -535,26 +366,7 @@ async def analyze_text_chunk(chunk: str, chunk_num: int, total_chunks: int) -> D
         messages=[
             {
                 "role": "user",
-                "content": f"""
-                Your task is to determine whether the following text chunk (chunk {chunk_num} of {total_chunks}) is AI-generated or human-written.
-                
-                Analyze the text for:
-                - Writing patterns typical of AI (overly formal, repetitive structures, lack of personal voice)
-                - Natural human writing characteristics (varied sentence structure, personal touches, natural flow)
-                - Consistency and coherence
-                - Use of specific details and authentic experiences
-                
-                Text chunk to analyze:
-                {chunk}
-                
-                Respond ONLY with a JSON object in this exact format:
-                {{
-                    "classification": "AI-Generated" or "Human-Written",
-                    "confidence": 85,
-                    "reasoning": "Brief explanation of your analysis",
-                    "details": ["Key observation 1", "Key observation 2", "Key observation 3"]
-                }}
-                """
+                "content": ANALYZE_TEXT_CHUNK_PROMPT.format(chunk_num=chunk_num,total_chunks=total_chunks,chunk=chunk)
             }
         ]
     )
@@ -706,6 +518,180 @@ async def analyze_text(request: TextAnalysisRequest) -> JSONResponse:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing text: {str(e)}")
+
+def extract_video_frames(video_bytes: bytes, max_frames: int = 5) -> List[bytes]:
+    """
+    Extract frames from video file.
+    
+    Args:
+        video_bytes: Video file bytes
+        max_frames: Maximum number of frames to extract
+    
+    Returns:
+        List of frame images as bytes
+    """
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        raise HTTPException(status_code=500, detail="OpenCV library not installed. Please install opencv-python.")
+    
+    # Save video bytes to temporary file
+    import tempfile
+    import os
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
+        tmp_file.write(video_bytes)
+        tmp_path = tmp_file.name
+    
+    try:
+        # Open video
+        cap = cv2.VideoCapture(tmp_path)
+        if not cap.isOpened():
+            raise ValueError("Could not open video file")
+        
+        # Get video properties
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        # Calculate frame interval to sample evenly
+        if total_frames <= max_frames:
+            frame_indices = list(range(total_frames))
+        else:
+            frame_indices = [int(i * total_frames / max_frames) for i in range(max_frames)]
+        
+        frames = []
+        for frame_idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            if ret:
+                # Convert frame to JPEG bytes
+                _, buffer = cv2.imencode('.jpg', frame)
+                frames.append(buffer.tobytes())
+        
+        cap.release()
+        return frames
+    
+    finally:
+        # Clean up temporary file
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+@app.post("/analyze-video")
+async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
+    """Analyze uploaded video to determine if it's AI-generated or real"""
+    try:
+        # Validate file type
+        file_ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+        contents = await file.read()
+        
+        # Check if it's a video file
+        if file_ext not in ['mp4', 'mov', 'avi', 'webm', 'mkv']:
+            raise HTTPException(status_code=400, detail=f"Unsupported video format: {file_ext}")
+        
+        # Extract frames from video
+        frames = extract_video_frames(contents, max_frames=5)
+        
+        if not frames:
+            raise HTTPException(status_code=400, detail="Could not extract frames from video")
+        
+        # Analyze each frame
+        frame_results = []
+        for i, frame_bytes in enumerate(frames):
+            # Encode frame to base64
+            frame_base64 = base64.b64encode(frame_bytes).decode("utf-8")
+            
+            # Analyze frame using Claude API
+            response = client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=1000,
+                temperature=0,
+                system="You are an AI and Real video frame identifier. Respond ONLY with valid JSON.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": frame_base64
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": VIDEO_PROMPT.format(frame_number=i+1,frame_length=len(frames))
+                            }
+                        ]
+                    }
+                ]
+            )
+            
+            # Parse response
+            response_text = response.content[0].text
+            
+            # Try to extract JSON if it's wrapped in markdown code blocks
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+            try:
+                frame_result = json.loads(response_text)
+                frame_results.append(frame_result)
+            except json.JSONDecodeError:
+                frame_results.append({
+                    "classification": "Analysis Complete",
+                    "confidence": 75,
+                    "reasoning": response_text
+                })
+        
+        # Aggregate frame results
+        ai_count = sum(1 for r in frame_results if "ai" in r.get("classification", "").lower())
+        real_count = len(frame_results) - ai_count
+        
+        # Calculate average confidence
+        avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
+        
+        # Determine overall classification
+        if ai_count > real_count:
+            classification = "AI-Generated"
+            confidence = int((ai_count / len(frame_results)) * avg_confidence)
+        elif real_count > ai_count:
+            classification = "Real Video"
+            confidence = int((real_count / len(frame_results)) * avg_confidence)
+        else:
+            classification = "Mixed/Uncertain"
+            confidence = int(avg_confidence)
+        
+        # Aggregate reasoning
+        all_reasonings = [r.get("reasoning", "") for r in frame_results if r.get("reasoning")]
+        reasoning = f"Analyzed {len(frame_results)} frame(s) from the video. " + " ".join(all_reasonings[:2])
+        
+        # Create details list
+        details = [
+            f"{ai_count} frame(s) classified as AI-Generated",
+            f"{real_count} frame(s) classified as Real Video",
+            f"Overall confidence: {confidence}%"
+        ]
+        
+        result = {
+            "classification": classification,
+            "confidence": min(100, max(0, confidence)),
+            "reasoning": reasoning,
+            "details": details
+        }
+        
+        return JSONResponse(content={
+            "success": True,
+            "result": result
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
 
 @app.get("/health")
 async def health_check():
