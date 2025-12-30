@@ -6,7 +6,6 @@
     <title>True Origin AI - AI Content Detector</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* [CSS content from the provided code - keeping all theme variables and styles] */
         /* CSS Variables for Theming */
         :root[data-theme="light"] {
             --bg-primary: linear-gradient(135deg, #fafafa 0%, #ffffff 50%, #fff8f5 100%);
@@ -148,6 +147,453 @@
             padding: 24px 16px;
         }
 
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border-accent);
+            border-radius: 12px;
+            padding: 16px 20px;
+            min-width: 320px;
+            max-width: 420px;
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: all;
+            animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+        }
+
+        .toast::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: var(--accent-gradient);
+            animation: toastProgress 3s linear forwards;
+        }
+
+        .toast.success::before {
+            background: var(--success-gradient);
+        }
+
+        .toast.error::before {
+            background: var(--danger-gradient);
+        }
+
+        .toast.warning::before {
+            background: var(--warning-gradient);
+        }
+
+        .toast-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .toast-message {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 4px 8px;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+        }
+
+        .toast-close:hover {
+            background: var(--bg-upload);
+            color: var(--text-primary);
+        }
+
+        /* Progress Bar Component */
+        .progress-container {
+            margin: 16px 0;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .progress-container.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .progress-bar-wrapper {
+            background: var(--bg-upload);
+            border-radius: 50px;
+            height: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent-gradient);
+            border-radius: 50px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* Activity Timeline */
+        .activity-timeline {
+            margin: 20px 0;
+            padding: 20px;
+            background: var(--bg-upload);
+            border-radius: 12px;
+            border: 1px solid var(--border-secondary);
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .activity-timeline.active {
+            max-height: 500px;
+            opacity: 1;
+        }
+
+        .timeline-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .timeline-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border-left: 3px solid var(--border-accent);
+            animation: slideInLeft 0.4s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .timeline-item.completed {
+            border-left-color: var(--success);
+        }
+
+        .timeline-item.in-progress {
+            border-left-color: var(--accent-primary);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .timeline-item.pending {
+            opacity: 0.5;
+            border-left-color: var(--text-muted);
+        }
+
+        .timeline-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-step {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .timeline-description {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .timeline-status {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timeline-status.completed {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .timeline-status.in-progress {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .timeline-status.pending {
+            background: var(--bg-upload);
+            color: var(--text-muted);
+        }
+
+        /* Enhanced Loading Spinner */
+        .loading {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            animation: fadeIn 0.3s ease-out;
+            border-radius: 12px;
+            z-index: 100;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+        }
+
+        .spinner {
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255, 87, 34, 0.2);
+            border-top: 5px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .spinner-inner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid transparent;
+            border-bottom: 4px solid var(--accent-secondary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite reverse;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: white;
+            font-weight: 600;
+            animation: pulse 2s ease-in-out infinite;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .loading-subtext {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Enhanced Buttons with Ripple Effect */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--accent-gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn:hover:not(:disabled)::before {
+            opacity: 0.15;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            background-size: 200% auto;
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: var(--shadow-xl), var(--shadow-glow);
+            background-position: right center;
+        }
+
+        .btn-primary:hover:not(:disabled)::after {
+            left: 100%;
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary.loading {
+            pointer-events: none;
+        }
+
+        .btn-primary.loading::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--bg-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Ripple Effect */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            transform: scale(0);
+            animation: rippleEffect 0.6s ease-out;
+            pointer-events: none;
+        }
+
+        /* Skeleton Loader */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-upload) 25%, var(--bg-hover) 50%, var(--bg-upload) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        .skeleton-text {
+            height: 16px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-title {
+            height: 24px;
+            width: 60%;
+            margin-bottom: 16px;
+        }
+
+        .skeleton-image {
+            height: 200px;
+            margin-bottom: 16px;
+        }
+
         /* Header Styles */
         .header {
             display: flex;
@@ -207,6 +653,8 @@
             background-clip: text;
             margin-bottom: 4px;
             letter-spacing: -0.5px;
+            animation: gradientShift 3s ease infinite;
+            background-size: 200% auto;
         }
 
         .header p {
@@ -222,6 +670,11 @@
             gap: 12px;
             cursor: pointer;
             user-select: none;
+            transition: transform 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.05);
         }
 
         .theme-switch {
@@ -333,22 +786,30 @@
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             text-align: center;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            position: relative;
+            overflow: hidden;
         }
 
         .nav-tab .icon {
             font-size: 1.1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-tab:hover .icon {
+            transform: scale(1.2) rotate(5deg);
         }
 
         .nav-tab.active {
             background: var(--accent-gradient);
             color: white;
             box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
 
         .nav-tab:hover:not(.active) {
@@ -379,7 +840,7 @@
             padding: 28px;
             backdrop-filter: blur(20px);
             box-shadow: var(--shadow-lg);
-            transition: all 0.4s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
         }
@@ -441,26 +902,10 @@
             transition: opacity 0.4s ease;
         }
 
-        .upload-area::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            transition: opacity 0.4s ease;
-        }
-
-        :root[data-theme="light"] .upload-area::after {
-            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 87, 34, 0.15) 0%, transparent 60%);
-        }
-
-        :root[data-theme="dark"] .upload-area::after {
-            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 87, 34, 0.25) 0%, transparent 60%);
-        }
-
         .upload-area:hover {
             border-color: var(--border-accent-hover);
             background: var(--bg-upload-hover);
-            transform: translateY(-4px);
+            transform: translateY(-4px) scale(1.02);
             box-shadow: var(--shadow-lg), var(--shadow-glow);
             border-style: solid;
         }
@@ -469,14 +914,10 @@
             opacity: 0.08;
         }
 
-        .upload-area:hover::after {
-            opacity: 1;
-        }
-
         .upload-area.drag-over {
             border-color: var(--accent-primary);
             background: var(--bg-upload-hover);
-            transform: scale(1.02);
+            transform: scale(1.03);
             box-shadow: var(--shadow-xl), var(--shadow-glow);
             border-style: solid;
         }
@@ -490,6 +931,11 @@
             margin-bottom: 16px;
             animation: float 3s ease-in-out infinite;
             filter: grayscale(0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            transform: scale(1.1);
         }
 
         .upload-text h3 {
@@ -536,45 +982,12 @@
             object-fit: contain;
             border-radius: 8px;
             box-shadow: var(--shadow-md);
+            animation: fadeIn 0.5s ease-out;
         }
 
         video.preview-image {
             display: block;
             background: #000;
-        }
-
-        /* Loading Spinner */
-        .loading {
-            position: absolute;
-            inset: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(8px);
-            animation: fadeIn 0.2s ease-out;
-            border-radius: 8px;
-        }
-
-        .loading.active {
-            display: flex;
-        }
-
-        .spinner {
-            width: 56px;
-            height: 56px;
-            margin-bottom: 16px;
-            border: 4px solid rgba(99, 102, 241, 0.2);
-            border-top: 4px solid var(--accent-primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .loading-text {
-            font-size: 0.95rem;
-            color: white;
-            font-weight: 500;
         }
 
         /* Text Input Area */
@@ -585,6 +998,13 @@
             padding: 20px;
             min-height: 200px;
             margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .text-input-area:focus-within {
+            border-color: var(--accent-primary);
+            border-style: solid;
+            box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.1);
         }
 
         .text-input-area textarea {
@@ -605,7 +1025,7 @@
         .text-input-area textarea:focus {
             border-color: var(--accent-primary);
             background: var(--bg-secondary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.1);
         }
 
         .text-input-area textarea::placeholder {
@@ -682,74 +1102,6 @@
             font-size: 0.9rem;
         }
 
-        /* Buttons */
-        .btn {
-            padding: 14px 24px;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: var(--accent-gradient);
-            background-size: 200% auto;
-            color: white;
-            box-shadow: var(--shadow-md);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-xl), var(--shadow-glow);
-            background-position: right center;
-        }
-
-        .btn-primary:hover:not(:disabled)::before {
-            left: 100%;
-        }
-
-        .btn-primary:active:not(:disabled) {
-            transform: translateY(-1px);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-secondary {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-primary);
-        }
-
-        .btn-secondary:hover {
-            background: var(--bg-hover);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-
         .analyze-btn {
             width: 100%;
             margin-top: 16px;
@@ -795,6 +1147,7 @@
             font-size: 1.75rem;
             font-weight: 800;
             letter-spacing: -0.5px;
+            animation: fadeInUp 0.5s ease-out;
         }
 
         .classification-label.ai {
@@ -820,7 +1173,7 @@
             font-weight: 700;
             color: white;
             box-shadow: var(--shadow-lg), var(--shadow-glow);
-            animation: pulse 3s ease-in-out infinite;
+            animation: pulse 3s ease-in-out infinite, fadeInUp 0.5s ease-out;
         }
 
         .reasoning {
@@ -853,6 +1206,12 @@
             color: var(--text-secondary);
             font-size: 0.9rem;
             line-height: 1.6;
+            transition: all 0.3s ease;
+        }
+
+        .detail-item:hover {
+            transform: translateX(4px);
+            box-shadow: var(--shadow-sm);
         }
 
         .detail-item:nth-child(1) { animation-delay: 0.05s; }
@@ -884,6 +1243,12 @@
             background: var(--bg-card);
             border-radius: 8px;
             border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
         }
 
         .stat-item.ai {
@@ -1023,8 +1388,13 @@
         .text-segment {
             padding: 3px 6px;
             border-radius: 4px;
-            transition: opacity 0.2s ease;
+            transition: all 0.2s ease;
             border-left: 3px solid;
+        }
+
+        .text-segment:hover {
+            transform: scale(1.02);
+            box-shadow: var(--shadow-sm);
         }
 
         .text-segment.ai-generated {
@@ -1136,6 +1506,17 @@
             }
         }
 
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
         @keyframes gradientShift {
             0%, 100% {
                 background-position: 0% 50%;
@@ -1157,9 +1538,11 @@
         @keyframes pulse {
             0%, 100% {
                 opacity: 1;
+                transform: scale(1);
             }
             50% {
                 opacity: 0.8;
+                transform: scale(0.98);
             }
         }
 
@@ -1169,6 +1552,22 @@
             }
             100% {
                 background-position: 1000px 0;
+            }
+        }
+
+        @keyframes rippleEffect {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        @keyframes toastProgress {
+            from {
+                width: 100%;
+            }
+            to {
+                width: 0%;
             }
         }
 
@@ -1248,6 +1647,17 @@
             .stat-value {
                 font-size: 1.3rem;
             }
+
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+
+            .toast {
+                min-width: auto;
+                width: 100%;
+            }
         }
 
         @media (max-width: 480px) {
@@ -1267,6 +1677,9 @@
     </style>
 </head>
 <body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <div class="container">
         <div class="header">
             <div class="header-content">
@@ -1321,13 +1734,36 @@
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeImageUrlBtn" disabled>Analyze from URL/Base64</button>
 
+                    <!-- Progress Bar -->
+                    <div class="progress-container" id="imageProgressContainer">
+                        <div class="progress-label">
+                            <span id="imageProgressLabel">Processing...</span>
+                            <span id="imageProgressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar" id="imageProgressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Timeline -->
+                    <div class="activity-timeline" id="imageActivityTimeline">
+                        <div class="timeline-title">
+                            ⚡ Activity Log
+                        </div>
+                        <div class="timeline-items" id="imageTimelineItems"></div>
+                    </div>
+
                     <div class="preview-section" id="previewSection">
                         <div class="panel-title" style="margin-top:14px;">Preview</div>
                         <div class="image-preview">
                             <img id="previewImage" class="preview-image" alt="Preview">
                             <div class="loading" id="loading">
-                                <div class="spinner"></div>
-                                <div class="loading-text">Analyzing image...</div>
+                                <div class="spinner-container">
+                                    <div class="spinner"></div>
+                                    <div class="spinner-inner"></div>
+                                </div>
+                                <div class="loading-text" id="imageLoadingText">Analyzing image...</div>
+                                <div class="loading-subtext">Please wait while we process your content</div>
                             </div>
                         </div>
                     </div>
@@ -1355,14 +1791,38 @@
                         <textarea id="docUrlInput" placeholder="Paste a document URL here (PDF, DOCX, Google Docs, etc.)..." style="min-height: 60px;"></textarea>
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeDocUrlBtn" disabled style="margin-top: 8px;">Load from URL</button>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-container" id="textProgressContainer">
+                        <div class="progress-label">
+                            <span id="textProgressLabel">Processing...</span>
+                            <span id="textProgressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar" id="textProgressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Timeline -->
+                    <div class="activity-timeline" id="textActivityTimeline">
+                        <div class="timeline-title">
+                            ⚡ Activity Log
+                        </div>
+                        <div class="timeline-items" id="textTimelineItems"></div>
+                    </div>
+
                     <div class="text-preview" id="textPreview" style="display: none;">
                         <div class="panel-title" style="margin-top:0; margin-bottom:8px;">Document Preview</div>
                         <div class="text-preview-content" id="textPreviewContent"></div>
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeTextBtn" disabled>Analyze Text</button>
                     <div class="loading" id="textLoading" style="position: relative; margin-top: 16px; min-height: 60px;">
-                        <div class="spinner" style="position: relative; margin: 0 auto;"></div>
-                        <div class="loading-text">Analyzing text...</div>
+                        <div class="spinner-container">
+                            <div class="spinner"></div>
+                            <div class="spinner-inner"></div>
+                        </div>
+                        <div class="loading-text" id="textLoadingText">Analyzing text...</div>
+                        <div class="loading-subtext">Processing your content</div>
                     </div>
                 </div>
             </div>
@@ -1387,13 +1847,36 @@
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeVideoUrlBtn" disabled>Analyze from URL</button>
 
+                    <!-- Progress Bar -->
+                    <div class="progress-container" id="videoProgressContainer">
+                        <div class="progress-label">
+                            <span id="videoProgressLabel">Processing...</span>
+                            <span id="videoProgressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar" id="videoProgressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Timeline -->
+                    <div class="activity-timeline" id="videoActivityTimeline">
+                        <div class="timeline-title">
+                            ⚡ Activity Log
+                        </div>
+                        <div class="timeline-items" id="videoTimelineItems"></div>
+                    </div>
+
                     <div class="preview-section" id="videoPreviewSection">
                         <div class="panel-title" style="margin-top:14px;">Preview</div>
                         <div class="image-preview">
                             <video id="previewVideo" class="preview-image" controls style="display: none;"></video>
                             <div class="loading" id="videoLoading">
-                                <div class="spinner"></div>
-                                <div class="loading-text">Analyzing video...</div>
+                                <div class="spinner-container">
+                                    <div class="spinner"></div>
+                                    <div class="spinner-inner"></div>
+                                </div>
+                                <div class="loading-text" id="videoLoadingText">Analyzing video...</div>
+                                <div class="loading-subtext">AI frame analysis takes time, please be patient</div>
                             </div>
                         </div>
                     </div>
@@ -1474,6 +1957,157 @@
     </div>
 
     <script>
+        // Toast Notification System
+        function showToast(title, message, type = 'info', duration = 3000) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || icons.info}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Progress Bar System
+        class ProgressBar {
+            constructor(containerId, barId, labelId, percentId) {
+                this.container = document.getElementById(containerId);
+                this.bar = document.getElementById(barId);
+                this.label = document.getElementById(labelId);
+                this.percent = document.getElementById(percentId);
+            }
+
+            show(label = 'Processing...') {
+                this.container.classList.add('active');
+                this.setProgress(0, label);
+            }
+
+            hide() {
+                this.container.classList.remove('active');
+            }
+
+            setProgress(value, label = null) {
+                this.bar.style.width = `${value}%`;
+                this.percent.textContent = `${Math.round(value)}%`;
+                if (label) this.label.textContent = label;
+            }
+        }
+
+        // Activity Timeline System
+        class ActivityTimeline {
+            constructor(containerId, itemsId) {
+                this.container = document.getElementById(containerId);
+                this.items = document.getElementById(itemsId);
+                this.steps = [];
+            }
+
+            show() {
+                this.container.classList.add('active');
+            }
+
+            hide() {
+                this.container.classList.remove('active');
+            }
+
+            addStep(icon, step, description, status = 'pending') {
+                const statusLabels = {
+                    completed: 'Done',
+                    'in-progress': 'Running',
+                    pending: 'Waiting'
+                };
+
+                const item = document.createElement('div');
+                item.className = `timeline-item ${status}`;
+                item.innerHTML = `
+                    <div class="timeline-icon">${icon}</div>
+                    <div class="timeline-content">
+                        <div class="timeline-step">${step}</div>
+                        <div class="timeline-description">${description}</div>
+                    </div>
+                    <div class="timeline-status ${status}">${statusLabels[status]}</div>
+                `;
+                this.items.appendChild(item);
+                this.steps.push({ element: item, status });
+                return item;
+            }
+
+            updateStep(index, status) {
+                if (this.steps[index]) {
+                    const item = this.steps[index].element;
+                    item.className = `timeline-item ${status}`;
+                    const statusElem = item.querySelector('.timeline-status');
+                    const statusLabels = {
+                        completed: 'Done',
+                        'in-progress': 'Running',
+                        pending: 'Waiting'
+                    };
+                    statusElem.textContent = statusLabels[status];
+                    statusElem.className = `timeline-status ${status}`;
+                }
+            }
+
+            clear() {
+                this.items.innerHTML = '';
+                this.steps = [];
+            }
+        }
+
+        // Ripple Effect
+        function createRipple(event) {
+            const button = event.currentTarget;
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = event.clientX - rect.left - size / 2;
+            const y = event.clientY - rect.top - size / 2;
+
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+
+            button.appendChild(ripple);
+
+            ripple.addEventListener('animationend', () => {
+                ripple.remove();
+            });
+        }
+
+        // Add ripple to all buttons
+        document.querySelectorAll('.btn').forEach(button => {
+            button.addEventListener('click', createRipple);
+        });
+
+        // Initialize Progress Bars
+        const imageProgress = new ProgressBar('imageProgressContainer', 'imageProgressBar', 'imageProgressLabel', 'imageProgressPercent');
+        const textProgress = new ProgressBar('textProgressContainer', 'textProgressBar', 'textProgressLabel', 'textProgressPercent');
+        const videoProgress = new ProgressBar('videoProgressContainer', 'videoProgressBar', 'videoProgressLabel', 'videoProgressPercent');
+
+        // Initialize Activity Timelines
+        const imageTimeline = new ActivityTimeline('imageActivityTimeline', 'imageTimelineItems');
+        const textTimeline = new ActivityTimeline('textActivityTimeline', 'textTimelineItems');
+        const videoTimeline = new ActivityTimeline('videoActivityTimeline', 'videoTimelineItems');
+
         // Theme Toggle Functionality
         const themeToggle = document.getElementById('themeToggle');
         const themeText = document.getElementById('themeText');
@@ -1491,6 +2125,7 @@
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             updateThemeButton(newTheme);
+            showToast('Theme Changed', `Switched to ${newTheme} mode`, 'success', 2000);
         });
 
         function updateThemeButton(theme) {
@@ -1612,6 +2247,18 @@
             highlightedTextContainer.style.display = 'none';
             highlightedText.innerHTML = '';
             statisticsContainer.style.display = 'none';
+
+            // Hide progress bars and timelines
+            imageProgress.hide();
+            textProgress.hide();
+            videoProgress.hide();
+            imageTimeline.hide();
+            textTimeline.hide();
+            videoTimeline.hide();
+            imageTimeline.clear();
+            textTimeline.clear();
+            videoTimeline.clear();
+
             showPlaceholder();
         }
 
@@ -1655,9 +2302,21 @@
 
         async function handleFile(file) {
             if (!file.type.startsWith('image/')) {
-                alert('Please upload an image file');
+                showToast('Invalid File', 'Please upload an image file', 'error');
                 return;
             }
+
+            showToast('File Selected', `Analyzing ${file.name}`, 'info', 2000);
+
+            // Show progress and timeline
+            imageProgress.show('Loading image...');
+            imageProgress.setProgress(10, 'Loading image...');
+            imageTimeline.show();
+            imageTimeline.clear();
+            imageTimeline.addStep('📁', 'File Selected', `${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'completed');
+            imageTimeline.addStep('📤', 'Uploading', 'Sending to server...', 'in-progress');
+            imageTimeline.addStep('🤖', 'AI Analysis', 'Analyzing with Claude AI...', 'pending');
+            imageTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             // Show preview
             const reader = new FileReader();
@@ -1672,11 +2331,17 @@
             results.classList.remove('active');
             showPlaceholder('Analyzing image...');
 
+            imageProgress.setProgress(30, 'Uploading image...');
+
             // Upload and analyze
             const formData = new FormData();
             formData.append('file', file);
 
             try {
+                imageProgress.setProgress(50, 'Processing with AI...');
+                imageTimeline.updateStep(1, 'completed');
+                imageTimeline.updateStep(2, 'in-progress');
+
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     body: formData
@@ -1684,18 +2349,32 @@
 
                 const data = await response.json();
 
+                imageProgress.setProgress(90, 'Finalizing results...');
+
                 if (data.success) {
+                    imageProgress.setProgress(100, 'Complete!');
+                    imageTimeline.updateStep(2, 'completed');
+                    imageTimeline.updateStep(3, 'completed');
                     highlightedTextContainer.style.display = 'none';
                     statisticsContainer.style.display = 'none';
                     displayResults(data.result);
+                    showToast('Analysis Complete', 'Image analyzed successfully', 'success');
+                    setTimeout(() => {
+                        imageProgress.hide();
+                        imageTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error analyzing image');
+                    showToast('Analysis Failed', 'Unable to analyze the image', 'error');
                     showPlaceholder('Unable to analyze the image. Please try again.');
+                    imageProgress.hide();
+                    imageTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error analyzing image. Please try again.');
+                showToast('Error', 'Failed to analyze image. Please try again.', 'error');
                 showPlaceholder('Error analyzing the image. Please try again.');
+                imageProgress.hide();
+                imageTimeline.hide();
             } finally {
                 loading.classList.remove('active');
             }
@@ -1808,6 +2487,7 @@
 
         clearResults.addEventListener('click', () => {
             resetAll();
+            showToast('Cleared', 'Results cleared successfully', 'info', 2000);
         });
 
         // Video Detector Functionality
@@ -1838,9 +2518,22 @@
 
         async function handleVideoFile(file) {
             if (!file.type.startsWith('video/')) {
-                alert('Please upload a video file');
+                showToast('Invalid File', 'Please upload a video file', 'error');
                 return;
             }
+
+            showToast('File Selected', `Analyzing ${file.name}`, 'info', 2000);
+
+            // Show progress and timeline
+            videoProgress.show('Loading video...');
+            videoProgress.setProgress(5, 'Loading video...');
+            videoTimeline.show();
+            videoTimeline.clear();
+            videoTimeline.addStep('📁', 'File Selected', `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`, 'completed');
+            videoTimeline.addStep('📤', 'Uploading', 'Sending to server...', 'in-progress');
+            videoTimeline.addStep('🎞️', 'Extracting Frames', 'Processing video frames...', 'pending');
+            videoTimeline.addStep('🤖', 'AI Analysis', 'Analyzing frames with Claude AI (this may take a while)...', 'pending');
+            videoTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             // Show preview
             const videoURL = URL.createObjectURL(file);
@@ -1852,11 +2545,18 @@
             results.classList.remove('active');
             showPlaceholder('Analyzing video...');
 
+            videoProgress.setProgress(20, 'Uploading video...');
+
             // Upload and analyze
             const formData = new FormData();
             formData.append('file', file);
 
             try {
+                videoProgress.setProgress(30, 'Extracting frames...');
+                videoTimeline.updateStep(1, 'completed');
+                videoTimeline.updateStep(2, 'in-progress');
+                document.getElementById('videoLoadingText').textContent = 'Extracting frames...';
+
                 const response = await fetch('/analyze-video', {
                     method: 'POST',
                     body: formData
@@ -1864,18 +2564,35 @@
 
                 const data = await response.json();
 
+                videoProgress.setProgress(40, 'Analyzing frames with AI (this takes most of the time)...');
+                videoTimeline.updateStep(2, 'completed');
+                videoTimeline.updateStep(3, 'in-progress');
+                document.getElementById('videoLoadingText').textContent = 'Analyzing frames with AI...';
+
                 if (data.success) {
+                    videoProgress.setProgress(100, 'Complete!');
+                    videoTimeline.updateStep(3, 'completed');
+                    videoTimeline.updateStep(4, 'completed');
                     highlightedTextContainer.style.display = 'none';
                     statisticsContainer.style.display = 'none';
                     displayResults(data.result);
+                    showToast('Analysis Complete', 'Video analyzed successfully', 'success');
+                    setTimeout(() => {
+                        videoProgress.hide();
+                        videoTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error analyzing video');
+                    showToast('Analysis Failed', 'Unable to analyze the video', 'error');
                     showPlaceholder('Unable to analyze the video. Please try again.');
+                    videoProgress.hide();
+                    videoTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error analyzing video. Please try again.');
+                showToast('Error', 'Failed to analyze video. Please try again.', 'error');
                 showPlaceholder('Error analyzing the video. Please try again.');
+                videoProgress.hide();
+                videoTimeline.hide();
             } finally {
                 videoLoading.classList.remove('active');
                 URL.revokeObjectURL(videoURL);
@@ -1927,9 +2644,21 @@
             const fileExt = '.' + file.name.split('.').pop().toLowerCase();
 
             if (!allowedTypes.includes(fileExt)) {
-                alert('Please upload a PDF, DOCX, PPT, or TXT file');
+                showToast('Invalid File', 'Please upload a PDF, DOCX, PPT, or TXT file', 'error');
                 return;
             }
+
+            showToast('File Selected', `Processing ${file.name}`, 'info', 2000);
+
+            // Show progress and timeline
+            textProgress.show('Loading document...');
+            textProgress.setProgress(10, 'Loading document...');
+            textTimeline.show();
+            textTimeline.clear();
+            textTimeline.addStep('📁', 'File Selected', `${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'completed');
+            textTimeline.addStep('📤', 'Uploading', 'Sending to server...', 'in-progress');
+            textTimeline.addStep('📄', 'Extracting Text', 'Parsing document...', 'pending');
+            textTimeline.addStep('✅', 'Complete', 'Text extracted', 'pending');
 
             const formData = new FormData();
             formData.append('file', file);
@@ -1937,6 +2666,10 @@
             try {
                 textLoading.classList.add('active');
                 analyzeTextBtn.disabled = true;
+
+                textProgress.setProgress(40, 'Extracting text...');
+                textTimeline.updateStep(1, 'completed');
+                textTimeline.updateStep(2, 'in-progress');
 
                 // Extract text from file
                 const extractResponse = await fetch('/extract-text', {
@@ -1946,18 +2679,32 @@
 
                 const extractData = await extractResponse.json();
 
+                textProgress.setProgress(90, 'Finalizing...');
+                textTimeline.updateStep(2, 'completed');
+
                 if (extractData.success) {
+                    textProgress.setProgress(100, 'Complete!');
+                    textTimeline.updateStep(3, 'completed');
                     currentText = extractData.text;
                     textInput.value = currentText;
                     textPreview.style.display = 'block';
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
                     analyzeTextBtn.disabled = false;
+                    showToast('Text Extracted', 'Document text extracted successfully', 'success');
+                    setTimeout(() => {
+                        textProgress.hide();
+                        textTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error extracting text from file: ' + (extractData.error || 'Unknown error'));
+                    showToast('Extraction Failed', extractData.error || 'Unknown error', 'error');
+                    textProgress.hide();
+                    textTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error processing file. Please try again.');
+                showToast('Error', 'Failed to process file. Please try again.', 'error');
+                textProgress.hide();
+                textTimeline.hide();
             } finally {
                 textLoading.classList.remove('active');
             }
@@ -1966,9 +2713,22 @@
         // Analyze text button
         analyzeTextBtn.addEventListener('click', async () => {
             if (!currentText) {
-                alert('Please enter or upload text to analyze');
+                showToast('No Text', 'Please enter or upload text to analyze', 'warning');
                 return;
             }
+
+            showToast('Analyzing', 'Starting text analysis...', 'info', 2000);
+
+            // Show progress and timeline
+            textProgress.show('Preparing analysis...');
+            textProgress.setProgress(10, 'Preparing analysis...');
+            textTimeline.show();
+            textTimeline.clear();
+            textTimeline.addStep('📝', 'Text Loaded', `${currentText.length} characters`, 'completed');
+            textTimeline.addStep('✂️', 'Chunking Text', 'Splitting into segments...', 'in-progress');
+            textTimeline.addStep('🤖', 'AI Analysis', 'Analyzing with Claude AI...', 'pending');
+            textTimeline.addStep('📊', 'Aggregating', 'Combining results...', 'pending');
+            textTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             textLoading.classList.add('active');
             analyzeTextBtn.disabled = true;
@@ -1977,6 +2737,10 @@
             showPlaceholder('Analyzing text...');
 
             try {
+                textProgress.setProgress(30, 'Processing text...');
+                textTimeline.updateStep(1, 'completed');
+                textTimeline.updateStep(2, 'in-progress');
+
                 const response = await fetch('/analyze-text', {
                     method: 'POST',
                     headers: {
@@ -1987,21 +2751,37 @@
 
                 const data = await response.json();
 
+                textProgress.setProgress(70, 'Analyzing...');
+                textTimeline.updateStep(2, 'completed');
+                textTimeline.updateStep(3, 'in-progress');
+
                 if (data.success) {
+                    textProgress.setProgress(100, 'Complete!');
+                    textTimeline.updateStep(3, 'completed');
+                    textTimeline.updateStep(4, 'completed');
                     displayResults(
                         data.result,
                         data.original_text || currentText,
                         data.segments || null,
                         data.statistics || null
                     );
+                    showToast('Analysis Complete', 'Text analyzed successfully', 'success');
+                    setTimeout(() => {
+                        textProgress.hide();
+                        textTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error analyzing text');
+                    showToast('Analysis Failed', 'Unable to analyze the text', 'error');
                     showPlaceholder('Unable to analyze the text. Please try again.');
+                    textProgress.hide();
+                    textTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error analyzing text. Please try again.');
+                showToast('Error', 'Failed to analyze text. Please try again.', 'error');
                 showPlaceholder('Error analyzing the text. Please try again.');
+                textProgress.hide();
+                textTimeline.hide();
             } finally {
                 textLoading.classList.remove('active');
                 analyzeTextBtn.disabled = false;
@@ -2018,9 +2798,21 @@
         analyzeImageUrlBtn.addEventListener('click', async () => {
             const url = imageUrlInput.value.trim();
             if (!url) {
-                alert('Please enter an image URL or base64 data');
+                showToast('No URL', 'Please enter an image URL or base64 data', 'warning');
                 return;
             }
+
+            showToast('Analyzing', 'Analyzing image from URL...', 'info', 2000);
+
+            // Show progress and timeline
+            imageProgress.show('Downloading image...');
+            imageProgress.setProgress(10, 'Downloading image...');
+            imageTimeline.show();
+            imageTimeline.clear();
+            imageTimeline.addStep('🔗', 'URL Provided', 'Image URL detected', 'completed');
+            imageTimeline.addStep('📥', 'Downloading', 'Fetching image...', 'in-progress');
+            imageTimeline.addStep('🤖', 'AI Analysis', 'Analyzing with Claude AI...', 'pending');
+            imageTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             previewImage.src = url.startsWith('data:') ? url : url;
             previewSection.classList.add('active');
@@ -2030,6 +2822,10 @@
             showPlaceholder('Analyzing image...');
 
             try {
+                imageProgress.setProgress(50, 'Processing with AI...');
+                imageTimeline.updateStep(1, 'completed');
+                imageTimeline.updateStep(2, 'in-progress');
+
                 const response = await fetch('/analyze-image-url', {
                     method: 'POST',
                     headers: {
@@ -2040,18 +2836,32 @@
 
                 const data = await response.json();
 
+                imageProgress.setProgress(90, 'Finalizing results...');
+
                 if (data.success) {
+                    imageProgress.setProgress(100, 'Complete!');
+                    imageTimeline.updateStep(2, 'completed');
+                    imageTimeline.updateStep(3, 'completed');
                     highlightedTextContainer.style.display = 'none';
                     statisticsContainer.style.display = 'none';
                     displayResults(data.result);
+                    showToast('Analysis Complete', 'Image analyzed successfully', 'success');
+                    setTimeout(() => {
+                        imageProgress.hide();
+                        imageTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error analyzing image from URL: ' + (data.detail || 'Unknown error'));
+                    showToast('Analysis Failed', data.detail || 'Unknown error', 'error');
                     showPlaceholder('Unable to analyze the image. Please try again.');
+                    imageProgress.hide();
+                    imageTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error analyzing image. Please try again.');
+                showToast('Error', 'Failed to analyze image. Please try again.', 'error');
                 showPlaceholder('Error analyzing the image. Please try again.');
+                imageProgress.hide();
+                imageTimeline.hide();
             } finally {
                 loading.classList.remove('active');
             }
@@ -2067,13 +2877,29 @@
         analyzeDocUrlBtn.addEventListener('click', async () => {
             const url = docUrlInput.value.trim();
             if (!url) {
-                alert('Please enter a document URL');
+                showToast('No URL', 'Please enter a document URL', 'warning');
                 return;
             }
+
+            showToast('Processing', 'Loading document from URL...', 'info', 2000);
+
+            // Show progress and timeline
+            textProgress.show('Downloading document...');
+            textProgress.setProgress(10, 'Downloading document...');
+            textTimeline.show();
+            textTimeline.clear();
+            textTimeline.addStep('🔗', 'URL Provided', 'Document URL detected', 'completed');
+            textTimeline.addStep('📥', 'Downloading', 'Fetching document...', 'in-progress');
+            textTimeline.addStep('📄', 'Extracting Text', 'Parsing document...', 'pending');
+            textTimeline.addStep('✅', 'Complete', 'Text extracted', 'pending');
 
             try {
                 textLoading.classList.add('active');
                 analyzeDocUrlBtn.disabled = true;
+
+                textProgress.setProgress(40, 'Extracting text...');
+                textTimeline.updateStep(1, 'completed');
+                textTimeline.updateStep(2, 'in-progress');
 
                 const response = await fetch('/extract-text-url', {
                     method: 'POST',
@@ -2085,18 +2911,32 @@
 
                 const data = await response.json();
 
+                textProgress.setProgress(90, 'Finalizing...');
+
                 if (data.success) {
+                    textProgress.setProgress(100, 'Complete!');
+                    textTimeline.updateStep(2, 'completed');
+                    textTimeline.updateStep(3, 'completed');
                     currentText = data.text;
                     textInput.value = currentText;
                     textPreview.style.display = 'block';
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
                     analyzeTextBtn.disabled = false;
+                    showToast('Text Extracted', 'Document text extracted successfully', 'success');
+                    setTimeout(() => {
+                        textProgress.hide();
+                        textTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error extracting text from URL: ' + (data.detail || 'Unknown error'));
+                    showToast('Extraction Failed', data.detail || 'Unknown error', 'error');
+                    textProgress.hide();
+                    textTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error processing URL. Please try again.');
+                showToast('Error', 'Failed to process URL. Please try again.', 'error');
+                textProgress.hide();
+                textTimeline.hide();
             } finally {
                 textLoading.classList.remove('active');
                 analyzeDocUrlBtn.disabled = false;
@@ -2113,9 +2953,22 @@
         analyzeVideoUrlBtn.addEventListener('click', async () => {
             const url = videoUrlInput.value.trim();
             if (!url) {
-                alert('Please enter a YouTube video URL');
+                showToast('No URL', 'Please enter a YouTube video URL', 'warning');
                 return;
             }
+
+            showToast('Processing', 'Analyzing video from URL...', 'info', 2000);
+
+            // Show progress and timeline
+            videoProgress.show('Downloading video...');
+            videoProgress.setProgress(5, 'Downloading video...');
+            videoTimeline.show();
+            videoTimeline.clear();
+            videoTimeline.addStep('🔗', 'URL Provided', 'YouTube URL detected', 'completed');
+            videoTimeline.addStep('📥', 'Downloading', 'Fetching video from YouTube...', 'in-progress');
+            videoTimeline.addStep('🎞️', 'Extracting Frames', 'Processing video frames...', 'pending');
+            videoTimeline.addStep('🤖', 'AI Analysis', 'Analyzing frames with Claude AI (this may take a while)...', 'pending');
+            videoTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             videoPreviewSection.classList.add('active');
             videoLoading.classList.add('active');
@@ -2124,6 +2977,9 @@
             showPlaceholder('Analyzing video...');
 
             try {
+                videoProgress.setProgress(15, 'Downloading from YouTube...');
+                document.getElementById('videoLoadingText').textContent = 'Downloading video from YouTube...';
+
                 const response = await fetch('/analyze-video-url', {
                     method: 'POST',
                     headers: {
@@ -2134,18 +2990,40 @@
 
                 const data = await response.json();
 
+                videoProgress.setProgress(25, 'Extracting frames...');
+                videoTimeline.updateStep(1, 'completed');
+                videoTimeline.updateStep(2, 'in-progress');
+                document.getElementById('videoLoadingText').textContent = 'Extracting frames...';
+
+                videoProgress.setProgress(35, 'Analyzing frames with AI (this takes most of the time)...');
+                videoTimeline.updateStep(2, 'completed');
+                videoTimeline.updateStep(3, 'in-progress');
+                document.getElementById('videoLoadingText').textContent = 'Analyzing frames with AI...';
+
                 if (data.success) {
+                    videoProgress.setProgress(100, 'Complete!');
+                    videoTimeline.updateStep(3, 'completed');
+                    videoTimeline.updateStep(4, 'completed');
                     highlightedTextContainer.style.display = 'none';
                     statisticsContainer.style.display = 'none';
                     displayResults(data.result);
+                    showToast('Analysis Complete', 'Video analyzed successfully', 'success');
+                    setTimeout(() => {
+                        videoProgress.hide();
+                        videoTimeline.hide();
+                    }, 2000);
                 } else {
-                    alert('Error analyzing video from URL: ' + (data.detail || 'Unknown error'));
+                    showToast('Analysis Failed', data.detail || 'Unknown error', 'error');
                     showPlaceholder('Unable to analyze the video. Please try again.');
+                    videoProgress.hide();
+                    videoTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error analyzing video. Please try again.');
+                showToast('Error', 'Failed to analyze video. Please try again.', 'error');
                 showPlaceholder('Error analyzing the video. Please try again.');
+                videoProgress.hide();
+                videoTimeline.hide();
             } finally {
                 videoLoading.classList.remove('active');
             }

@@ -772,11 +772,11 @@ async def analyze_text(request: TextAnalysisRequest) -> JSONResponse:
 def extract_video_frames(video_bytes: bytes, max_frames: int = 5) -> List[bytes]:
     """
     Extract frames from video file.
-    
+
     Args:
         video_bytes: Video file bytes
         max_frames: Maximum number of frames to extract
-    
+
     Returns:
         List of frame images as bytes
     """
@@ -785,47 +785,65 @@ def extract_video_frames(video_bytes: bytes, max_frames: int = 5) -> List[bytes]
         import numpy as np
     except ImportError:
         raise HTTPException(status_code=500, detail="OpenCV library not installed. Please install opencv-python.")
-    
+
     # Save video bytes to temporary file
     import tempfile
     import os
-    
+
+    # Try to preserve original file extension if possible, otherwise use .mp4
     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
         tmp_file.write(video_bytes)
         tmp_path = tmp_file.name
-    
+
     try:
         # Open video
         cap = cv2.VideoCapture(tmp_path)
         if not cap.isOpened():
-            raise ValueError("Could not open video file")
-        
+            raise ValueError("Could not open video file. The video format may be unsupported or corrupted.")
+
         # Get video properties
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        
+
+        if total_frames <= 0:
+            cap.release()
+            raise ValueError("Video file has no frames. The file may be corrupted or in an unsupported format.")
+
         # Calculate frame interval to sample evenly
         if total_frames <= max_frames:
             frame_indices = list(range(total_frames))
         else:
             frame_indices = [int(i * total_frames / max_frames) for i in range(max_frames)]
-        
+
         frames = []
         for frame_idx in frame_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             ret, frame = cap.read()
-            if ret:
+            if ret and frame is not None:
                 # Convert frame to JPEG bytes
-                _, buffer = cv2.imencode('.jpg', frame)
-                frames.append(buffer.tobytes())
-        
+                success, buffer = cv2.imencode('.jpg', frame)
+                if success:
+                    frames.append(buffer.tobytes())
+
         cap.release()
+
+        if not frames:
+            raise ValueError("Could not extract any frames from the video. Please try a different video file.")
+
         return frames
-    
+
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
     finally:
         # Clean up temporary file
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
 
 @app.post("/analyze-video")
 async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
