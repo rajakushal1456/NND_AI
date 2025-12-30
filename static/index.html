@@ -1571,6 +1571,41 @@
             }
         }
 
+        @keyframes buttonBlink {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.7);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 20px 5px rgba(255, 87, 34, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
+        @keyframes gentlePulse {
+            0%, 100% {
+                box-shadow: 0 0 15px rgba(255, 87, 34, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(255, 87, 34, 0.6);
+            }
+        }
+
+        /* Button highlighting for user guidance */
+        .btn.highlight-action {
+            animation: buttonBlink 1.5s ease-in-out 3, gentlePulse 2s ease-in-out infinite 4.5s;
+            position: relative;
+        }
+
+        .btn.highlight-action::after {
+            content: '👆';
+            position: absolute;
+            top: -35px;
+            right: -10px;
+            font-size: 1.5rem;
+            animation: float 1s ease-in-out infinite;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .container {
@@ -2098,6 +2133,43 @@
             button.addEventListener('click', createRipple);
         });
 
+        // Smooth scroll utility function
+        function smoothScrollTo(element, offset = -20) {
+            if (!element) return;
+
+            const elementPosition = element.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset + offset;
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            });
+        }
+
+        // Highlight button to guide user
+        function highlightButton(button, duration = 7000) {
+            if (!button) return;
+
+            button.classList.add('highlight-action');
+
+            // Scroll to the button so user can see it
+            setTimeout(() => {
+                smoothScrollTo(button, -100);
+            }, 300);
+
+            // Remove highlight after duration
+            setTimeout(() => {
+                button.classList.remove('highlight-action');
+            }, duration);
+        }
+
+        // Remove highlight when button is clicked
+        function removeHighlightOnClick(button) {
+            button.addEventListener('click', () => {
+                button.classList.remove('highlight-action');
+            }, { once: true });
+        }
+
         // Initialize Progress Bars
         const imageProgress = new ProgressBar('imageProgressContainer', 'imageProgressBar', 'imageProgressLabel', 'imageProgressPercent');
         const textProgress = new ProgressBar('textProgressContainer', 'textProgressBar', 'textProgressLabel', 'textProgressPercent');
@@ -2429,6 +2501,11 @@
 
             results.classList.add('active');
             hidePlaceholder();
+
+            // Auto-scroll to results after a short delay
+            setTimeout(() => {
+                smoothScrollTo(results, -100);
+            }, 500);
         }
 
         function renderHighlightedText(originalText, segments) {
@@ -2606,6 +2683,10 @@
             if (currentText) {
                 textPreview.style.display = 'block';
                 textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+
+                // Highlight the analyze button when text is entered
+                highlightButton(analyzeTextBtn);
+                removeHighlightOnClick(analyzeTextBtn);
             } else {
                 textPreview.style.display = 'none';
             }
@@ -2691,6 +2772,13 @@
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
                     analyzeTextBtn.disabled = false;
                     showToast('Text Extracted', 'Document text extracted successfully', 'success');
+
+                    // Highlight analyze button after text extraction
+                    setTimeout(() => {
+                        highlightButton(analyzeTextBtn);
+                        removeHighlightOnClick(analyzeTextBtn);
+                    }, 2200);
+
                     setTimeout(() => {
                         textProgress.hide();
                         textTimeline.hide();
@@ -2792,6 +2880,12 @@
         imageUrlInput.addEventListener('input', (e) => {
             const url = e.target.value.trim();
             analyzeImageUrlBtn.disabled = !url;
+
+            // Highlight the analyze button when URL is entered
+            if (url) {
+                highlightButton(analyzeImageUrlBtn);
+                removeHighlightOnClick(analyzeImageUrlBtn);
+            }
         });
 
         // Analyze image from URL
@@ -2871,6 +2965,12 @@
         docUrlInput.addEventListener('input', (e) => {
             const url = e.target.value.trim();
             analyzeDocUrlBtn.disabled = !url;
+
+            // Highlight the analyze button when URL is entered
+            if (url) {
+                highlightButton(analyzeDocUrlBtn);
+                removeHighlightOnClick(analyzeDocUrlBtn);
+            }
         });
 
         // Load document from URL
@@ -2923,6 +3023,13 @@
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
                     analyzeTextBtn.disabled = false;
                     showToast('Text Extracted', 'Document text extracted successfully', 'success');
+
+                    // Highlight analyze button after text extraction from URL
+                    setTimeout(() => {
+                        highlightButton(analyzeTextBtn);
+                        removeHighlightOnClick(analyzeTextBtn);
+                    }, 2200);
+
                     setTimeout(() => {
                         textProgress.hide();
                         textTimeline.hide();
@@ -2947,6 +3054,12 @@
         videoUrlInput.addEventListener('input', (e) => {
             const url = e.target.value.trim();
             analyzeVideoUrlBtn.disabled = !url;
+
+            // Highlight the analyze button when URL is entered
+            if (url) {
+                highlightButton(analyzeVideoUrlBtn);
+                removeHighlightOnClick(analyzeVideoUrlBtn);
+            }
         });
 
         // Analyze video from YouTube URL
