@@ -33,3 +33,6 @@ python-pptx>=0.6.23
 opencv-python>=4.8.0
 numpy>=1.24.0
 
+# URL processing libraries
+requests>=2.31.0
+yt-dlp>=2023.10.0

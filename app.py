@@ -12,6 +12,7 @@ from anthropic import Anthropic
 import os
 from dotenv import load_dotenv
 import io
+import requests
 from prompts import IMAGE_PROMPT,VIDEO_PROMPT, ANALYZE_TEXT_SEGMENT_PROMPT,ANALYZE_TEXT_CHUNK_PROMPT
 from config import SUPPORTED_MIME_TYPES,SUPPORTED_TEXT_TYPES,SUPPORTED_VIDEO_TYPES
 # Load environment variables
@@ -38,6 +39,9 @@ client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 class TextAnalysisRequest(BaseModel):
     text: str
+
+class URLRequest(BaseModel):
+    url: str
 
 def chunk_text(text: str, chunk_size: int = 8000, overlap: int = 200) -> List[str]:
     """
@@ -203,11 +207,11 @@ async def analyze_image(file: UploadFile = File(...)) -> JSONResponse:
     try:
         # Validate file type
         mime_type = get_mime_type(file.filename)
-        
+
         # Read and encode image
         contents = await file.read()
         image_base64 = base64.b64encode(contents).decode("utf-8")
-        
+
         # Call Claude API
         response = client.messages.create(
             model="claude-sonnet-4-5-20250929",
@@ -234,16 +238,16 @@ async def analyze_image(file: UploadFile = File(...)) -> JSONResponse:
                 }
             ]
         )
-        
+
         # Parse response
         response_text = response.content[0].text
-        
+
         # Try to extract JSON if it's wrapped in markdown code blocks
         if "```json" in response_text:
             response_text = response_text.split("```json")[1].split("```")[0].strip()
         elif "```" in response_text:
             response_text = response_text.split("```")[1].split("```")[0].strip()
-        
+
         # Parse JSON response
         try:
             result = json.loads(response_text)
@@ -255,12 +259,143 @@ async def analyze_image(file: UploadFile = File(...)) -> JSONResponse:
                 "reasoning": response_text,
                 "details": ["Analysis provided above"]
             }
-        
+
         return JSONResponse(content={
             "success": True,
             "result": result
         })
-        
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
+
+@app.post("/analyze-image-url")
+async def analyze_image_url(request: URLRequest) -> JSONResponse:
+    """Analyze image from URL or base64 data to determine if it's AI-generated or real"""
+    try:
+        url = request.url
+
+        # Check if input is base64 data
+        if url.startswith('data:image/'):
+            # Parse data URI format: data:image/png;base64,iVBORw0KG...
+            try:
+                # Extract MIME type and base64 data
+                header, base64_data = url.split(',', 1)
+                mime_type = header.split(';')[0].split(':')[1]
+
+                # Validate MIME type
+                if mime_type not in SUPPORTED_MIME_TYPES:
+                    raise ValueError(f"Unsupported image type: {mime_type}")
+
+                # Use the base64 data directly
+                image_base64 = base64_data
+
+            except (ValueError, IndexError) as e:
+                raise ValueError(f"Invalid base64 data URI format: {str(e)}")
+
+        elif url.startswith('base64,') or url.startswith('data:,'):
+            # Handle alternative base64 formats
+            try:
+                if url.startswith('base64,'):
+                    image_base64 = url.split('base64,', 1)[1]
+                else:
+                    image_base64 = url.split('data:,', 1)[1]
+
+                # Try to decode to validate
+                base64.b64decode(image_base64)
+
+                # Default to JPEG if no type specified
+                mime_type = 'image/jpeg'
+
+            except Exception as e:
+                raise ValueError(f"Invalid base64 data: {str(e)}")
+
+        else:
+            # Regular URL - download the image
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            contents = response.content
+
+            # Determine MIME type
+            content_type = response.headers.get('Content-Type', '')
+            if 'image' in content_type:
+                mime_type = content_type.split(';')[0]
+            else:
+                # Try to guess from URL extension
+                file_ext = url.split('.')[-1].lower().split('?')[0]
+                ext_to_mime = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'gif': 'image/gif',
+                    'webp': 'image/webp'
+                }
+                mime_type = ext_to_mime.get(file_ext, 'image/jpeg')
+
+            # Validate MIME type
+            if mime_type not in SUPPORTED_MIME_TYPES:
+                raise ValueError(f"Unsupported image type: {mime_type}")
+
+            # Encode image
+            image_base64 = base64.b64encode(contents).decode("utf-8")
+
+        # Call Claude API
+        api_response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=1000,
+            temperature=0,
+            system="You are an AI and Real image identifier. Respond ONLY with valid JSON.",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": mime_type,
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": IMAGE_PROMPT
+                        }
+                    ]
+                }
+            ]
+        )
+
+        # Parse response
+        response_text = api_response.content[0].text
+
+        # Try to extract JSON if it's wrapped in markdown code blocks
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+
+        # Parse JSON response
+        try:
+            result = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Fallback parsing
+            result = {
+                "classification": "Analysis Complete",
+                "confidence": 75,
+                "reasoning": response_text,
+                "details": ["Analysis provided above"]
+            }
+
+        return JSONResponse(content={
+            "success": True,
+            "result": result
+        })
+
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Error downloading image from URL: {str(e)}")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -272,9 +407,9 @@ async def extract_text(file: UploadFile = File(...)) -> JSONResponse:
     try:
         file_ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
         contents = await file.read()
-        
+
         text = ""
-        
+
         if file_ext == 'txt':
             text = contents.decode('utf-8', errors='ignore')
         elif file_ext == 'pdf':
@@ -311,15 +446,130 @@ async def extract_text(file: UploadFile = File(...)) -> JSONResponse:
                 raise HTTPException(status_code=500, detail="PPT extraction library not installed. Please install python-pptx.")
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
-        
+
         if not text.strip():
             raise HTTPException(status_code=400, detail="No text could be extracted from the file")
-        
+
         return JSONResponse(content={
             "success": True,
             "text": text
         })
-        
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error extracting text: {str(e)}")
+
+@app.post("/extract-text-url")
+async def extract_text_url(request: URLRequest) -> JSONResponse:
+    """Extract text from document URL (PDF, DOCX, PPT, TXT)"""
+    try:
+        url = request.url
+
+        # Convert Google Docs/Drive URLs to direct download links
+        if 'docs.google.com' in url or 'drive.google.com' in url:
+            # Extract document ID from various Google URL formats
+            doc_id = None
+
+            # Google Docs format: docs.google.com/document/d/{ID}/edit
+            if 'docs.google.com/document/d/' in url:
+                doc_id = url.split('/document/d/')[1].split('/')[0]
+                # Export as DOCX
+                url = f'https://docs.google.com/document/d/{doc_id}/export?format=docx'
+                file_ext = 'docx'
+            # Google Sheets format: docs.google.com/spreadsheets/d/{ID}/edit
+            elif 'docs.google.com/spreadsheets/d/' in url:
+                doc_id = url.split('/spreadsheets/d/')[1].split('/')[0]
+                # Export as PDF (easier to extract text from)
+                url = f'https://docs.google.com/spreadsheets/d/{doc_id}/export?format=pdf'
+                file_ext = 'pdf'
+            # Google Slides format: docs.google.com/presentation/d/{ID}/edit
+            elif 'docs.google.com/presentation/d/' in url:
+                doc_id = url.split('/presentation/d/')[1].split('/')[0]
+                # Export as PPTX
+                url = f'https://docs.google.com/presentation/d/{doc_id}/export?format=pptx'
+                file_ext = 'pptx'
+            # Google Drive format: drive.google.com/file/d/{ID}/view
+            elif 'drive.google.com/file/d/' in url:
+                doc_id = url.split('/file/d/')[1].split('/')[0]
+                # Direct download
+                url = f'https://drive.google.com/uc?export=download&id={doc_id}'
+                file_ext = ''  # Will be determined later
+            # Google Drive open format: drive.google.com/open?id={ID}
+            elif 'drive.google.com/open?id=' in url:
+                doc_id = url.split('id=')[1].split('&')[0]
+                url = f'https://drive.google.com/uc?export=download&id={doc_id}'
+                file_ext = ''
+
+        # Download the file from URL
+        response = requests.get(url, timeout=30, allow_redirects=True)
+        response.raise_for_status()
+
+        contents = response.content
+
+        # Determine file type from URL or Content-Type header
+        if 'file_ext' not in locals() or not file_ext:
+            file_ext = url.split('.')[-1].lower().split('?')[0] if '.' in url else ''
+
+        if not file_ext:
+            content_type = response.headers.get('Content-Type', '')
+            if 'pdf' in content_type:
+                file_ext = 'pdf'
+            elif 'word' in content_type or 'docx' in content_type or 'officedocument.wordprocessing' in content_type:
+                file_ext = 'docx'
+            elif 'powerpoint' in content_type or 'pptx' in content_type or 'officedocument.presentation' in content_type:
+                file_ext = 'pptx'
+            elif 'text' in content_type:
+                file_ext = 'txt'
+
+        text = ""
+
+        if file_ext == 'txt':
+            text = contents.decode('utf-8', errors='ignore')
+        elif file_ext == 'pdf':
+            try:
+                import PyPDF2
+                pdf_reader = PyPDF2.PdfReader(io.BytesIO(contents))
+                text = "\n".join([page.extract_text() for page in pdf_reader.pages])
+            except ImportError:
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(io.BytesIO(contents)) as pdf:
+                        text = "\n".join([page.extract_text() or "" for page in pdf.pages])
+                except ImportError:
+                    raise HTTPException(status_code=500, detail="PDF extraction library not installed. Please install PyPDF2 or pdfplumber.")
+        elif file_ext == 'docx':
+            try:
+                from docx import Document
+                doc = Document(io.BytesIO(contents))
+                text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            except ImportError:
+                raise HTTPException(status_code=500, detail="DOCX extraction library not installed. Please install python-docx.")
+        elif file_ext in ['ppt', 'pptx']:
+            try:
+                from pptx import Presentation
+                prs = Presentation(io.BytesIO(contents))
+                text_parts = []
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            text_parts.append(shape.text)
+                text = "\n".join(text_parts)
+            except ImportError:
+                raise HTTPException(status_code=500, detail="PPT extraction library not installed. Please install python-pptx.")
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_ext}")
+
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="No text could be extracted from the file")
+
+        return JSONResponse(content={
+            "success": True,
+            "text": text
+        })
+
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Error downloading file from URL: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:
@@ -688,6 +938,151 @@ async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
             "result": result
         })
         
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
+
+@app.post("/analyze-video-url")
+async def analyze_video_url(request: URLRequest) -> JSONResponse:
+    """Analyze video from YouTube URL to determine if it's AI-generated or real"""
+    try:
+        url = request.url
+
+        # Download video from YouTube using yt-dlp
+        try:
+            import yt_dlp
+        except ImportError:
+            raise HTTPException(status_code=500, detail="yt-dlp library not installed. Please install yt-dlp.")
+
+        import tempfile
+        import os
+
+        # Create temporary directory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, 'video.mp4')
+
+            # Configure yt-dlp options
+            ydl_opts = {
+                'format': 'best[ext=mp4]/best',  # Prefer MP4 format
+                'outtmpl': output_path,
+                'quiet': True,
+                'no_warnings': True,
+            }
+
+            # Download video
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {str(e)}")
+
+            # Read the downloaded video
+            if not os.path.exists(output_path):
+                raise HTTPException(status_code=400, detail="Video download failed")
+
+            with open(output_path, 'rb') as f:
+                video_bytes = f.read()
+
+        # Extract frames from video
+        frames = extract_video_frames(video_bytes, max_frames=5)
+
+        if not frames:
+            raise HTTPException(status_code=400, detail="Could not extract frames from video")
+
+        # Analyze each frame
+        frame_results = []
+        for i, frame_bytes in enumerate(frames):
+            # Encode frame to base64
+            frame_base64 = base64.b64encode(frame_bytes).decode("utf-8")
+
+            # Analyze frame using Claude API
+            response = client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=1000,
+                temperature=0,
+                system="You are an AI and Real video frame identifier. Respond ONLY with valid JSON.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": frame_base64
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": VIDEO_PROMPT.format(frame_number=i+1, frame_length=len(frames))
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            # Parse response
+            response_text = response.content[0].text
+
+            # Try to extract JSON if it's wrapped in markdown code blocks
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+
+            try:
+                frame_result = json.loads(response_text)
+                frame_results.append(frame_result)
+            except json.JSONDecodeError:
+                frame_results.append({
+                    "classification": "Analysis Complete",
+                    "confidence": 75,
+                    "reasoning": response_text
+                })
+
+        # Aggregate frame results
+        ai_count = sum(1 for r in frame_results if "ai" in r.get("classification", "").lower())
+        real_count = len(frame_results) - ai_count
+
+        # Calculate average confidence
+        avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
+
+        # Determine overall classification
+        if ai_count > real_count:
+            classification = "AI-Generated"
+            confidence = int((ai_count / len(frame_results)) * avg_confidence)
+        elif real_count > ai_count:
+            classification = "Real Video"
+            confidence = int((real_count / len(frame_results)) * avg_confidence)
+        else:
+            classification = "Mixed/Uncertain"
+            confidence = int(avg_confidence)
+
+        # Aggregate reasoning
+        all_reasonings = [r.get("reasoning", "") for r in frame_results if r.get("reasoning")]
+        reasoning = f"Analyzed {len(frame_results)} frame(s) from the YouTube video. " + " ".join(all_reasonings[:2])
+
+        # Create details list
+        details = [
+            f"{ai_count} frame(s) classified as AI-Generated",
+            f"{real_count} frame(s) classified as Real Video",
+            f"Overall confidence: {confidence}%"
+        ]
+
+        result = {
+            "classification": classification,
+            "confidence": min(100, max(0, confidence)),
+            "reasoning": reasoning,
+            "details": details
+        }
+
+        return JSONResponse(content={
+            "success": True,
+            "result": result
+        })
+
     except HTTPException:
         raise
     except Exception as e:
