@@ -967,99 +967,65 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
     try:
         url = request.url
 
-        # Download video from YouTube using yt-dlp
+        # Download video from YouTube using pytubefix (server-friendly)
         try:
-            import yt_dlp
+            from pytubefix import YouTube
+            from pytubefix.cli import on_progress
         except ImportError:
-            raise HTTPException(status_code=500, detail="yt-dlp library not installed. Please install yt-dlp.")
+            raise HTTPException(status_code=500, detail="pytubefix library not installed. Please install pytubefix.")
 
         import tempfile
         import os
+        import io
 
-        # Create temporary directory
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            output_path = os.path.join(tmp_dir, 'video.mp4')
+        try:
+            # Initialize YouTube object with the URL
+            yt = YouTube(url, on_progress_callback=on_progress)
 
-            # Try multiple download strategies
-            download_success = False
-            last_error = None
+            # Get the highest resolution MP4 stream available
+            # Filter for progressive streams (video + audio in one file)
+            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
 
-            # Strategy 1: Try with Android client (most reliable)
-            ydl_opts_android = {
-                'format': 'best[ext=mp4]/best',
-                'outtmpl': output_path,
-                'quiet': True,
-                'no_warnings': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android'],
-                        'player_skip': ['webpage']
-                    }
-                },
-            }
+            if not stream:
+                # Fallback to adaptive stream if progressive not available
+                stream = yt.streams.filter(file_extension='mp4', adaptive=True).order_by('resolution').desc().first()
 
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts_android) as ydl:
-                    ydl.download([url])
-                download_success = True
-            except Exception as e:
-                last_error = str(e)
-
-                # Strategy 2: Try with cookies from available browsers
-                browsers_to_try = ['chrome', 'firefox', 'edge', 'safari', 'chromium']
-                for browser in browsers_to_try:
-                    try:
-                        ydl_opts_cookies = {
-                            'format': 'best[ext=mp4]/best',
-                            'outtmpl': output_path,
-                            'quiet': True,
-                            'no_warnings': True,
-                            'cookiesfrombrowser': (browser,),
-                            'extractor_args': {
-                                'youtube': {
-                                    'player_client': ['android', 'web'],
-                                }
-                            },
-                        }
-                        with yt_dlp.YoutubeDL(ydl_opts_cookies) as ydl:
-                            ydl.download([url])
-                        download_success = True
-                        break
-                    except Exception:
-                        continue
-
-                # Strategy 3: Try with iOS client as last resort
-                if not download_success:
-                    try:
-                        ydl_opts_ios = {
-                            'format': 'best[ext=mp4]/best',
-                            'outtmpl': output_path,
-                            'quiet': True,
-                            'no_warnings': True,
-                            'extractor_args': {
-                                'youtube': {
-                                    'player_client': ['ios'],
-                                }
-                            },
-                        }
-                        with yt_dlp.YoutubeDL(ydl_opts_ios) as ydl:
-                            ydl.download([url])
-                        download_success = True
-                    except Exception as e:
-                        last_error = str(e)
-
-            if not download_success:
+            if not stream:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Unable to download video. This may be due to YouTube restrictions. Please try uploading the video file directly instead. Error: {last_error}"
+                    detail="No suitable video stream found. Please try uploading the video file directly."
                 )
 
-            # Read the downloaded video
-            if not os.path.exists(output_path):
-                raise HTTPException(status_code=400, detail="Video download failed")
+            # Download to temporary directory
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                output_path = stream.download(output_path=tmp_dir, filename='video.mp4')
 
-            with open(output_path, 'rb') as f:
-                video_bytes = f.read()
+                # Read the downloaded video
+                if not os.path.exists(output_path):
+                    raise HTTPException(status_code=400, detail="Video download failed")
+
+                with open(output_path, 'rb') as f:
+                    video_bytes = f.read()
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            error_msg = str(e)
+            if "unavailable" in error_msg.lower():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Video is unavailable or private. Please check the URL and try again."
+                )
+            elif "age" in error_msg.lower() or "restricted" in error_msg.lower():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Video is age-restricted or has restricted access. Please try uploading the video file directly."
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Error downloading video: {error_msg}. Please try uploading the video file directly instead."
+                )
 
         # Extract frames from video
         frames = extract_video_frames(video_bytes, max_frames=5)
