@@ -986,6 +986,13 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 'outtmpl': output_path,
                 'quiet': True,
                 'no_warnings': True,
+                'cookiesfrombrowser': ('chrome',),  # Extract cookies from Chrome to bypass bot detection
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'web'],
+                        'player_skip': ['webpage', 'configs']
+                    }
+                },
             }
 
             # Download video
@@ -993,7 +1000,34 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {str(e)}")
+                # If Chrome cookies fail, try without cookies but with different user agent
+                error_msg = str(e)
+                if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+                    try:
+                        # Fallback options without cookies but with mobile user agent
+                        ydl_opts_fallback = {
+                            'format': 'best[ext=mp4]/best',
+                            'outtmpl': output_path,
+                            'quiet': True,
+                            'no_warnings': True,
+                            'http_headers': {
+                                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip'
+                            },
+                            'extractor_args': {
+                                'youtube': {
+                                    'player_client': ['android'],
+                                }
+                            },
+                        }
+                        with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
+                            ydl.download([url])
+                    except Exception as e2:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"YouTube bot detection active. Please try: 1) Using a different video, 2) Uploading the video file directly, or 3) Try again later. Error: {str(e2)}"
+                        )
+                else:
+                    raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {error_msg}")
 
             # Read the downloaded video
             if not os.path.exists(output_path):
