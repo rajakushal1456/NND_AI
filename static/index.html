@@ -50,29 +50,29 @@
         }
 
         :root[data-theme="dark"] {
-            --bg-primary: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1f1f1f 100%);
-            --bg-secondary: #1e1e1e;
-            --bg-tertiary: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(255, 111, 0, 0.15) 100%);
-            --bg-card: rgba(30, 30, 30, 0.95);
-            --bg-hover: rgba(40, 40, 40, 0.9);
-            --bg-upload: linear-gradient(135deg, rgba(255, 87, 34, 0.08) 0%, rgba(255, 111, 0, 0.08) 100%);
-            --bg-upload-hover: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(255, 111, 0, 0.15) 100%);
+            --bg-primary: #050a1e;
+            --bg-secondary: #050a1e;
+            --bg-tertiary: linear-gradient(135deg, rgba(255, 60, 0, 0.12) 0%, rgba(245, 100, 33, 0.12) 100%);
+            --bg-card: #050a1e;
+            --bg-hover: rgba(22, 26, 43, 0.9);
+            --bg-upload: linear-gradient(135deg, rgba(255, 60, 0, 0.08) 0%, rgba(245, 100, 33, 0.08) 100%);
+            --bg-upload-hover: linear-gradient(135deg, rgba(255, 60, 0, 0.15) 0%, rgba(245, 100, 33, 0.15) 100%);
 
-            --border-primary: rgba(255, 87, 34, 0.2);
-            --border-secondary: rgba(255, 87, 34, 0.15);
-            --border-accent: rgba(255, 87, 34, 0.4);
-            --border-accent-hover: rgba(255, 87, 34, 0.7);
+            --border-primary: rgba(255, 60, 0, 0.25);
+            --border-secondary: rgba(255, 60, 0, 0.18);
+            --border-accent: rgba(255, 60, 0, 0.45);
+            --border-accent-hover: rgba(255, 60, 0, 0.75);
 
-            --text-primary: #f5f5f5;
+            --text-primary: #ffffff;
             --text-secondary: #e0e0e0;
             --text-tertiary: #b0b0b0;
-            --text-muted: #808080;
+            --text-muted: #7a7a7a;
 
-            --accent-primary: #ff5722;
-            --accent-secondary: #ff6f00;
-            --accent-gradient: linear-gradient(135deg, #ff5722 0%, #ff6f00 100%);
-            --accent-gradient-2: linear-gradient(135deg, #ff7043 0%, #ff9800 100%);
-            --accent-gradient-3: linear-gradient(135deg, #ff6f00 0%, #ffab40 100%);
+            --accent-primary: #ff3c00;
+            --accent-secondary: #F56421;
+            --accent-gradient: linear-gradient(135deg, #ff3c00 0%, #F56421 100%);
+            --accent-gradient-2: linear-gradient(135deg, #F56421 0%, #ff9800 100%);
+            --accent-gradient-3: linear-gradient(135deg, #ff3c00 0%, #ff9d7f 100%);
 
             --success: #4caf50;
             --success-light: rgba(76, 175, 80, 0.2);
@@ -84,11 +84,11 @@
             --danger-light: rgba(244, 67, 54, 0.2);
             --danger-gradient: linear-gradient(135deg, #ef5350 0%, #e57373 100%);
 
-            --shadow-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.5);
-            --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.6), 0 2px 6px 0 rgba(255, 87, 34, 0.1);
-            --shadow-lg: 0 8px 24px 0 rgba(0, 0, 0, 0.7), 0 4px 12px 0 rgba(255, 87, 34, 0.15);
-            --shadow-xl: 0 16px 48px 0 rgba(0, 0, 0, 0.8), 0 8px 24px 0 rgba(255, 87, 34, 0.2);
-            --shadow-glow: 0 0 50px rgba(255, 87, 34, 0.4);
+            --shadow-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.6);
+            --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.7);
+            --shadow-lg: 0 8px 24px 0 rgba(0, 0, 0, 0.8);
+            --shadow-xl: 0 16px 48px 0 rgba(0, 0, 0, 0.9);
+            --shadow-glow: 0 0 20px rgba(0, 0, 0, 0.5);
         }
 
         /* Reset & Base Styles */
@@ -109,6 +109,10 @@
             position: relative;
         }
 
+        :root[data-theme="dark"] body {
+            background-color: #000000;
+        }
+
         body::before {
             content: '';
             position: fixed;
@@ -119,6 +123,21 @@
             background: var(--bg-primary);
             z-index: -2;
             animation: gradientShift 15s ease infinite;
+        }
+
+        :root[data-theme="dark"] body::before {
+            background: #000000;
+        }
+
+        /* Particle Network Canvas */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            display: block;
         }
 
         body::after {
@@ -138,7 +157,7 @@
         }
 
         :root[data-theme="dark"] body::after {
-            background: radial-gradient(circle at 50% 50%, rgba(255, 87, 34, 0.12) 0%, transparent 50%);
+            background: radial-gradient(circle at 50% 50%, rgba(255, 60, 0, 0.15) 0%, transparent 50%);
         }
 
         .container {
@@ -243,6 +262,7 @@
             opacity: 0;
             transform: translateY(-10px);
             transition: all 0.3s ease;
+            display: none;
         }
 
         .progress-container.active {
@@ -611,6 +631,11 @@
             overflow: hidden;
         }
 
+        :root[data-theme="dark"] .header {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: #050a1e;
+        }
+
         .header::before {
             content: '';
             position: absolute;
@@ -637,7 +662,7 @@
         }
 
         :root[data-theme="dark"] .header::after {
-            background: radial-gradient(circle, rgba(255, 87, 34, 0.18) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 60, 0, 0.2) 0%, transparent 70%);
         }
 
         .header-content {
@@ -691,7 +716,7 @@
         }
 
         :root[data-theme="dark"] .theme-switch {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            background: linear-gradient(135deg, #161a2b 0%, #211e3b 100%);
         }
 
         .theme-switch::before {
@@ -725,7 +750,7 @@
 
         :root[data-theme="dark"] .theme-slider {
             transform: translateX(36px);
-            background: linear-gradient(135deg, #ff5722 0%, #ff6f00 100%);
+            background: linear-gradient(135deg, #ff3c00 0%, #F56421 100%);
         }
 
         .theme-icons {
@@ -774,6 +799,11 @@
             box-shadow: var(--shadow-sm);
             backdrop-filter: blur(10px);
             animation: fadeInUp 0.6s ease-out;
+        }
+
+        :root[data-theme="dark"] .nav-tabs {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: #050a1e;
         }
 
         .nav-tab {
@@ -845,6 +875,10 @@
             overflow: hidden;
         }
 
+        :root[data-theme="dark"] .card {
+            background-color: #050a1e;
+        }
+
         .card::before {
             content: '';
             position: absolute;
@@ -893,6 +927,11 @@
             justify-content: center;
         }
 
+        :root[data-theme="dark"] .upload-area {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: rgba(5, 10, 30, 0.8);
+        }
+
         .upload-area::before {
             content: '';
             position: absolute;
@@ -900,6 +939,24 @@
             background: var(--accent-gradient);
             opacity: 0;
             transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .upload-area::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        :root[data-theme="light"] .upload-area::after {
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 87, 34, 0.15) 0%, transparent 60%);
+        }
+
+        :root[data-theme="dark"] .upload-area::after {
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 60, 0, 0.3) 0%, transparent 60%);
         }
 
         .upload-area:hover {
@@ -932,10 +989,15 @@
             animation: float 3s ease-in-out infinite;
             filter: grayscale(0.2);
             transition: transform 0.3s ease;
+            pointer-events: none;
         }
 
         .upload-area:hover .upload-icon {
             transform: scale(1.1);
+        }
+
+        .upload-text {
+            pointer-events: none;
         }
 
         .upload-text h3 {
@@ -976,6 +1038,11 @@
             border: 1px solid var(--border-secondary);
         }
 
+        :root[data-theme="dark"] .image-preview {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: rgba(5, 10, 30, 0.8);
+        }
+
         .preview-image {
             width: 100%;
             max-height: 400px;
@@ -1005,6 +1072,11 @@
             border-color: var(--accent-primary);
             border-style: solid;
             box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.1);
+        }
+
+        :root[data-theme="dark"] .text-input-area {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: rgba(5, 10, 30, 0.8);
         }
 
         .text-input-area textarea {
@@ -1069,6 +1141,15 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        :root[data-theme="dark"] .text-file-upload {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: rgba(5, 10, 30, 0.8);
         }
 
         .text-file-upload:hover {
@@ -1134,6 +1215,11 @@
             border: 1px solid var(--border-secondary);
         }
 
+        :root[data-theme="dark"] .result-card {
+            background: url('/static/breadcumb-bg1copy.png') center center / cover no-repeat;
+            background-color: rgba(5, 10, 30, 0.8);
+        }
+
         .classification {
             display: flex;
             align-items: center;
@@ -1159,6 +1245,27 @@
 
         .classification-label.real {
             background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .classification-label.low-ai {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .classification-label.medium-ai {
+            background: linear-gradient(135deg, #ff8c00, #ffa500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .classification-label.high-ai {
+            background: var(--danger-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -1712,8 +1819,7 @@
     </style>
 </head>
 <body>
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <canvas id="particle-canvas"></canvas>
 
     <div class="container">
         <div class="header">
@@ -1992,193 +2098,115 @@
     </div>
 
     <script>
-        // Toast Notification System
-        function showToast(title, message, type = 'info', duration = 3000) {
-            const toastContainer = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
+        // Particle Network Animation
+        class ParticleNetwork {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.particles = [];
+                this.particleCount = 300;
+                this.maxDistance = 150;
+                this.mouse = { x: null, y: null, radius: 150 };
 
-            const icons = {
-                success: '✅',
-                error: '❌',
-                warning: '⚠️',
-                info: 'ℹ️'
-            };
+                this.resize();
+                this.init();
+                this.animate();
 
-            toast.innerHTML = `
-                <div class="toast-icon">${icons[type] || icons.info}</div>
-                <div class="toast-content">
-                    <div class="toast-title">${title}</div>
-                    <div class="toast-message">${message}</div>
-                </div>
-                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
-            `;
-
-            toastContainer.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.animation = 'fadeOut 0.3s ease-out forwards';
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
-
-        // Progress Bar System
-        class ProgressBar {
-            constructor(containerId, barId, labelId, percentId) {
-                this.container = document.getElementById(containerId);
-                this.bar = document.getElementById(barId);
-                this.label = document.getElementById(labelId);
-                this.percent = document.getElementById(percentId);
+                window.addEventListener('resize', () => this.resize());
+                window.addEventListener('mousemove', (e) => {
+                    this.mouse.x = e.x;
+                    this.mouse.y = e.y;
+                });
             }
 
-            show(label = 'Processing...') {
-                this.container.classList.add('active');
-                this.setProgress(0, label);
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
             }
 
-            hide() {
-                this.container.classList.remove('active');
-            }
-
-            setProgress(value, label = null) {
-                this.bar.style.width = `${value}%`;
-                this.percent.textContent = `${Math.round(value)}%`;
-                if (label) this.label.textContent = label;
-            }
-        }
-
-        // Activity Timeline System
-        class ActivityTimeline {
-            constructor(containerId, itemsId) {
-                this.container = document.getElementById(containerId);
-                this.items = document.getElementById(itemsId);
-                this.steps = [];
-            }
-
-            show() {
-                this.container.classList.add('active');
-            }
-
-            hide() {
-                this.container.classList.remove('active');
-            }
-
-            addStep(icon, step, description, status = 'pending') {
-                const statusLabels = {
-                    completed: 'Done',
-                    'in-progress': 'Running',
-                    pending: 'Waiting'
-                };
-
-                const item = document.createElement('div');
-                item.className = `timeline-item ${status}`;
-                item.innerHTML = `
-                    <div class="timeline-icon">${icon}</div>
-                    <div class="timeline-content">
-                        <div class="timeline-step">${step}</div>
-                        <div class="timeline-description">${description}</div>
-                    </div>
-                    <div class="timeline-status ${status}">${statusLabels[status]}</div>
-                `;
-                this.items.appendChild(item);
-                this.steps.push({ element: item, status });
-                return item;
-            }
-
-            updateStep(index, status) {
-                if (this.steps[index]) {
-                    const item = this.steps[index].element;
-                    item.className = `timeline-item ${status}`;
-                    const statusElem = item.querySelector('.timeline-status');
-                    const statusLabels = {
-                        completed: 'Done',
-                        'in-progress': 'Running',
-                        pending: 'Waiting'
-                    };
-                    statusElem.textContent = statusLabels[status];
-                    statusElem.className = `timeline-status ${status}`;
+            init() {
+                this.particles = [];
+                for (let i = 0; i < this.particleCount; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        radius: Math.random() * 2 + 1
+                    });
                 }
             }
 
-            clear() {
-                this.items.innerHTML = '';
-                this.steps = [];
+            animate() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Update and draw particles
+                this.particles.forEach((particle, i) => {
+                    // Update position
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+
+                    // Bounce off edges
+                    if (particle.x < 0 || particle.x > this.canvas.width) particle.vx *= -1;
+                    if (particle.y < 0 || particle.y > this.canvas.height) particle.vy *= -1;
+
+                    // Mouse interaction
+                    if (this.mouse.x != null && this.mouse.y != null) {
+                        const dx = this.mouse.x - particle.x;
+                        const dy = this.mouse.y - particle.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance < this.mouse.radius) {
+                            const force = (this.mouse.radius - distance) / this.mouse.radius;
+                            const angle = Math.atan2(dy, dx);
+                            particle.vx -= Math.cos(angle) * force * 0.2;
+                            particle.vy -= Math.sin(angle) * force * 0.2;
+                        }
+                    }
+
+                    // Draw particle with theme-aware colors
+                    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    this.ctx.fillStyle = isDark ? 'rgba(255, 60, 0, 0.8)' : 'rgba(255, 87, 34, 0.6)';
+                    this.ctx.fill();
+
+                    // Draw connections
+                    for (let j = i + 1; j < this.particles.length; j++) {
+                        const other = this.particles[j];
+                        const dx = particle.x - other.x;
+                        const dy = particle.y - other.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance < this.maxDistance) {
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(particle.x, particle.y);
+                            this.ctx.lineTo(other.x, other.y);
+                            const opacity = (1 - distance / this.maxDistance) * 0.5;
+                            const lineColor = isDark ? `rgba(255, 60, 0, ${opacity})` : `rgba(255, 87, 34, ${opacity * 0.4})`;
+                            this.ctx.strokeStyle = lineColor;
+                            this.ctx.lineWidth = 0.5;
+                            this.ctx.stroke();
+                        }
+                    }
+                });
+
+                requestAnimationFrame(() => this.animate());
             }
         }
 
-        // Ripple Effect
-        function createRipple(event) {
-            const button = event.currentTarget;
-            const ripple = document.createElement('span');
-            ripple.classList.add('ripple');
+        // Initialize particle network for both themes
+        const canvas = document.getElementById('particle-canvas');
+        let particleNetwork = null;
 
-            const rect = button.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            const x = event.clientX - rect.left - size / 2;
-            const y = event.clientY - rect.top - size / 2;
-
-            ripple.style.width = ripple.style.height = size + 'px';
-            ripple.style.left = x + 'px';
-            ripple.style.top = y + 'px';
-
-            button.appendChild(ripple);
-
-            ripple.addEventListener('animationend', () => {
-                ripple.remove();
-            });
+        function initParticles() {
+            if (!particleNetwork) {
+                particleNetwork = new ParticleNetwork(canvas);
+            }
         }
 
-        // Add ripple to all buttons
-        document.querySelectorAll('.btn').forEach(button => {
-            button.addEventListener('click', createRipple);
-        });
-
-        // Smooth scroll utility function
-        function smoothScrollTo(element, offset = -20) {
-            if (!element) return;
-
-            const elementPosition = element.getBoundingClientRect().top;
-            const offsetPosition = elementPosition + window.pageYOffset + offset;
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            });
-        }
-
-        // Highlight button to guide user
-        function highlightButton(button, duration = 7000) {
-            if (!button) return;
-
-            button.classList.add('highlight-action');
-
-            // Scroll to the button so user can see it
-            setTimeout(() => {
-                smoothScrollTo(button, -100);
-            }, 300);
-
-            // Remove highlight after duration
-            setTimeout(() => {
-                button.classList.remove('highlight-action');
-            }, duration);
-        }
-
-        // Remove highlight when button is clicked
-        function removeHighlightOnClick(button) {
-            button.addEventListener('click', () => {
-                button.classList.remove('highlight-action');
-            }, { once: true });
-        }
-
-        // Initialize Progress Bars
-        const imageProgress = new ProgressBar('imageProgressContainer', 'imageProgressBar', 'imageProgressLabel', 'imageProgressPercent');
-        const textProgress = new ProgressBar('textProgressContainer', 'textProgressBar', 'textProgressLabel', 'textProgressPercent');
-        const videoProgress = new ProgressBar('videoProgressContainer', 'videoProgressBar', 'videoProgressLabel', 'videoProgressPercent');
-
-        // Initialize Activity Timelines
-        const imageTimeline = new ActivityTimeline('imageActivityTimeline', 'imageTimelineItems');
-        const textTimeline = new ActivityTimeline('textActivityTimeline', 'textTimelineItems');
-        const videoTimeline = new ActivityTimeline('videoActivityTimeline', 'videoTimelineItems');
+        // Initialize on load
+        setTimeout(initParticles, 100);
 
         // Theme Toggle Functionality
         const themeToggle = document.getElementById('themeToggle');
@@ -2197,7 +2225,7 @@
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             updateThemeButton(newTheme);
-            showToast('Theme Changed', `Switched to ${newTheme} mode`, 'success', 2000);
+            initParticles();
         });
 
         function updateThemeButton(theme) {
@@ -2291,6 +2319,126 @@
         const slightlyAiPercentage = document.getElementById('slightlyAiPercentage');
         const humanPercentage = document.getElementById('humanPercentage');
 
+        // Toast notification system
+        function showToast(title, message, type = 'info', duration = 3000) {
+            const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+
+            const iconMap = {
+                success: '✓',
+                error: '✕',
+                info: 'ℹ',
+                warning: '⚠'
+            };
+
+            toast.innerHTML = `
+                <div class="toast-icon">${iconMap[type] || 'ℹ'}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-out forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // Progress bar helper class
+        class ProgressBar {
+            constructor(containerId, barId, labelId, percentId) {
+                this.container = document.getElementById(containerId);
+                this.bar = document.getElementById(barId);
+                this.label = document.getElementById(labelId);
+                this.percent = document.getElementById(percentId);
+            }
+
+            show(message = 'Processing...') {
+                this.container.style.display = 'block';
+                this.container.classList.add('active');
+                this.setProgress(0, message);
+            }
+
+            hide() {
+                this.container.classList.remove('active');
+                setTimeout(() => {
+                    this.container.style.display = 'none';
+                }, 300); // Wait for fade out animation
+            }
+
+            setProgress(percent, message = '') {
+                this.bar.style.width = `${percent}%`;
+                this.percent.textContent = `${percent}%`;
+                if (message) {
+                    this.label.textContent = message;
+                }
+            }
+        }
+
+        // Timeline helper class
+        class Timeline {
+            constructor(containerId, itemsId) {
+                this.container = document.getElementById(containerId);
+                this.itemsContainer = document.getElementById(itemsId);
+                this.stepIndex = 0;
+            }
+
+            show() {
+                this.container.classList.add('active');
+            }
+
+            hide() {
+                this.container.classList.remove('active');
+            }
+
+            clear() {
+                this.itemsContainer.innerHTML = '';
+                this.stepIndex = 0;
+            }
+
+            addStep(icon, title, description, status = 'pending') {
+                const item = document.createElement('div');
+                item.className = `timeline-item ${status}`;
+                item.id = `${this.container.id}-step-${this.stepIndex}`;
+                item.innerHTML = `
+                    <div class="timeline-icon">${icon}</div>
+                    <div class="timeline-content">
+                        <div class="timeline-step">${title}</div>
+                        <div class="timeline-description">${description}</div>
+                    </div>
+                `;
+                this.itemsContainer.appendChild(item);
+                this.stepIndex++;
+            }
+
+            updateStep(stepIndex, status) {
+                const item = document.getElementById(`${this.container.id}-step-${stepIndex}`);
+                if (item) {
+                    item.className = `timeline-item ${status}`;
+                }
+            }
+        }
+
+        // Initialize progress bars and timelines
+        const imageProgress = new ProgressBar('imageProgressContainer', 'imageProgressBar', 'imageProgressLabel', 'imageProgressPercent');
+        const textProgress = new ProgressBar('textProgressContainer', 'textProgressBar', 'textProgressLabel', 'textProgressPercent');
+        const videoProgress = new ProgressBar('videoProgressContainer', 'videoProgressBar', 'videoProgressLabel', 'videoProgressPercent');
+
+        const imageTimeline = new Timeline('imageActivityTimeline', 'imageTimelineItems');
+        const textTimeline = new Timeline('textActivityTimeline', 'textTimelineItems');
+        const videoTimeline = new Timeline('videoActivityTimeline', 'videoTimelineItems');
+
         let currentText = '';
 
         function resetAll() {
@@ -2342,6 +2490,18 @@
 
         function hidePlaceholder() {
             placeholderText.style.display = 'none';
+        }
+
+        // Smooth scroll helper function
+        function smoothScrollTo(element, offset = 0) {
+            if (!element) return;
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+            const offsetPosition = elementPosition + offset;
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            });
         }
 
         // Click to upload
@@ -2455,12 +2615,34 @@
         function displayResults(result, originalText = null, segments = null, statistics = null) {
             const isTextAnalysis = !!statistics;
 
-            // For image detector: show classification + confidence
+            // For image/video detector: show classification + confidence
             if (!isTextAnalysis) {
-                const isAI = result.classification.toLowerCase().includes('ai');
-
                 classificationLabel.textContent = result.classification;
-                classificationLabel.className = `classification-label ${isAI ? 'ai' : 'real'}`;
+
+                // Determine color class based on percentage for video detector
+                let colorClass = 'real';
+                const classificationText = result.classification.toLowerCase();
+
+                if (classificationText.includes('% ai generated')) {
+                    // Extract percentage from classification text like "60% AI Generated"
+                    const percentMatch = result.classification.match(/(\d+)%/);
+                    if (percentMatch) {
+                        const percentage = parseInt(percentMatch[1]);
+                        if (percentage === 0) {
+                            colorClass = 'real';
+                        } else if (percentage > 0 && percentage <= 20) {
+                            colorClass = 'low-ai';
+                        } else if (percentage > 20 && percentage <= 60) {
+                            colorClass = 'medium-ai';
+                        } else if (percentage > 60) {
+                            colorClass = 'high-ai';
+                        }
+                    }
+                } else if (classificationText.includes('ai')) {
+                    colorClass = 'ai';
+                }
+
+                classificationLabel.className = `classification-label ${colorClass}`;
 
                 confidenceBadge.textContent = `${result.confidence}% Confidence`;
                 classificationLabel.style.display = '';

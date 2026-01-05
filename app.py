@@ -30,6 +30,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Anthropic client
 ANTHROPIC_API_KEY = os.getenv(
     "ANTHROPIC_API_KEY"
@@ -918,44 +921,47 @@ async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
         # Aggregate frame results
         ai_count = sum(1 for r in frame_results if "ai" in r.get("classification", "").lower())
         real_count = len(frame_results) - ai_count
-        
+
         # Calculate average confidence
         avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
-        
-        # Determine overall classification
-        if ai_count > real_count:
-            classification = "AI-Generated"
-            confidence = int((ai_count / len(frame_results)) * avg_confidence)
-        elif real_count > ai_count:
-            classification = "Real Video"
-            confidence = int((real_count / len(frame_results)) * avg_confidence)
-        else:
-            classification = "Mixed/Uncertain"
+
+        # Determine overall classification and confidence
+        if ai_count > 0:
+            # If ANY frame is AI-generated, classify as AI-Generated
+            classification = f"{int((ai_count / len(frame_results)) * 100)}% AI Generated"
             confidence = int(avg_confidence)
-        
-        # Aggregate reasoning
-        all_reasonings = [r.get("reasoning", "") for r in frame_results if r.get("reasoning")]
-        reasoning = f"Analyzed {len(frame_results)} frame(s) from the video. " + " ".join(all_reasonings[:2])
-        
-        # Create details list
-        details = [
-            f"{ai_count} frame(s) classified as AI-Generated",
-            f"{real_count} frame(s) classified as Real Video",
-            f"Overall confidence: {confidence}%"
+        else:
+            # All frames are real
+            classification = "0% AI Generated"
+            confidence = int(avg_confidence)
+
+        # Create key observations list (4-5 points)
+        key_observations = [
+            f"Analyzed {len(frame_results)} frames from the video",
+            f"{ai_count} AI-generated frames detected" if ai_count > 0 else "No AI-generated frames detected",
+            f"{real_count} real video frames detected"
         ]
-        
+
+        # Add specific observations from frame analyses
+        for r in frame_results[:2]:  # Get observations from first 2 frames
+            if r.get("reasoning"):
+                key_observations.append(r.get("reasoning")[:100])  # Limit length
+
+        # Limit to 5 observations
+        key_observations = key_observations[:5]
+
         result = {
             "classification": classification,
             "confidence": min(100, max(0, confidence)),
-            "reasoning": reasoning,
-            "details": details
+            "reasoning": f"Video analysis based on {len(frame_results)} sampled frames",
+            "details": key_observations
         }
-        
+
         return JSONResponse(content={
             "success": True,
             "result": result
         })
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -967,65 +973,48 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
     try:
         url = request.url
 
-        # Download video from YouTube using pytubefix (server-friendly)
+        # Download video from YouTube using yt-dlp
         try:
-            from pytubefix import YouTube
-            from pytubefix.cli import on_progress
+            import yt_dlp
         except ImportError:
-            raise HTTPException(status_code=500, detail="pytubefix library not installed. Please install pytubefix.")
+            raise HTTPException(status_code=500, detail="yt-dlp library not installed. Please install yt-dlp.")
 
         import tempfile
         import os
-        import io
 
-        try:
-            # Initialize YouTube object with the URL
-            yt = YouTube(url, on_progress_callback=on_progress)
+        # Create temporary directory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, 'video.mp4')
 
-            # Get the highest resolution MP4 stream available
-            # Filter for progressive streams (video + audio in one file)
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+            # Configure yt-dlp options with server-friendly settings
+            ydl_opts = {
+                'format': 'best[ext=mp4]/best',  # Prefer MP4 format
+                'outtmpl': output_path,
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,  # Bypass SSL certificate verification issues
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',  # Use browser-like user agent
+                'referer': 'https://www.youtube.com/',  # Set referer to YouTube
+                'socket_timeout': 30,  # Set socket timeout
+                'retries': 3,  # Retry failed downloads
+                'fragment_retries': 3,  # Retry failed fragments
+                'extractor_retries': 3,  # Retry extractor failures
+                'file_access_retries': 3,  # Retry file access
+            }
 
-            if not stream:
-                # Fallback to adaptive stream if progressive not available
-                stream = yt.streams.filter(file_extension='mp4', adaptive=True).order_by('resolution').desc().first()
+            # Download video
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {str(e)}")
 
-            if not stream:
-                raise HTTPException(
-                    status_code=400,
-                    detail="No suitable video stream found. Please try uploading the video file directly."
-                )
+            # Read the downloaded video
+            if not os.path.exists(output_path):
+                raise HTTPException(status_code=400, detail="Video download failed")
 
-            # Download to temporary directory
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                output_path = stream.download(output_path=tmp_dir, filename='video.mp4')
-
-                # Read the downloaded video
-                if not os.path.exists(output_path):
-                    raise HTTPException(status_code=400, detail="Video download failed")
-
-                with open(output_path, 'rb') as f:
-                    video_bytes = f.read()
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            error_msg = str(e)
-            if "unavailable" in error_msg.lower():
-                raise HTTPException(
-                    status_code=400,
-                    detail="Video is unavailable or private. Please check the URL and try again."
-                )
-            elif "age" in error_msg.lower() or "restricted" in error_msg.lower():
-                raise HTTPException(
-                    status_code=400,
-                    detail="Video is age-restricted or has restricted access. Please try uploading the video file directly."
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Error downloading video: {error_msg}. Please try uploading the video file directly instead."
-                )
+            with open(output_path, 'rb') as f:
+                video_bytes = f.read()
 
         # Extract frames from video
         frames = extract_video_frames(video_bytes, max_frames=5)
@@ -1092,33 +1081,36 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
         # Calculate average confidence
         avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
 
-        # Determine overall classification
-        if ai_count > real_count:
-            classification = "AI-Generated"
-            confidence = int((ai_count / len(frame_results)) * avg_confidence)
-        elif real_count > ai_count:
-            classification = "Real Video"
-            confidence = int((real_count / len(frame_results)) * avg_confidence)
+        # Determine overall classification and confidence
+        if ai_count > 0:
+            # If ANY frame is AI-generated, classify as AI-Generated
+            classification = f"{int((ai_count / len(frame_results)) * 100)}% AI Generated"
+            confidence = int(avg_confidence)
         else:
-            classification = "Mixed/Uncertain"
+            # All frames are real
+            classification = "0% AI Generated"
             confidence = int(avg_confidence)
 
-        # Aggregate reasoning
-        all_reasonings = [r.get("reasoning", "") for r in frame_results if r.get("reasoning")]
-        reasoning = f"Analyzed {len(frame_results)} frame(s) from the YouTube video. " + " ".join(all_reasonings[:2])
-
-        # Create details list
-        details = [
-            f"{ai_count} frame(s) classified as AI-Generated",
-            f"{real_count} frame(s) classified as Real Video",
-            f"Overall confidence: {confidence}%"
+        # Create key observations list (4-5 points)
+        key_observations = [
+            f"Analyzed {len(frame_results)} frames from the YouTube video",
+            f"{ai_count} AI-generated frames detected" if ai_count > 0 else "No AI-generated frames detected",
+            f"{real_count} real video frames detected"
         ]
+
+        # Add specific observations from frame analyses
+        for r in frame_results[:2]:  # Get observations from first 2 frames
+            if r.get("reasoning"):
+                key_observations.append(r.get("reasoning")[:100])  # Limit length
+
+        # Limit to 5 observations
+        key_observations = key_observations[:5]
 
         result = {
             "classification": classification,
             "confidence": min(100, max(0, confidence)),
-            "reasoning": reasoning,
-            "details": details
+            "reasoning": f"Video analysis based on {len(frame_results)} sampled frames",
+            "details": key_observations
         }
 
         return JSONResponse(content={
