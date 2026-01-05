@@ -986,7 +986,7 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = os.path.join(tmp_dir, 'video.mp4')
 
-            # Configure yt-dlp options with server-friendly settings
+            # Configure yt-dlp options with cookie-based authentication
             ydl_opts = {
                 'format': 'best[ext=mp4]/best',  # Prefer MP4 format
                 'outtmpl': output_path,
@@ -1000,6 +1000,7 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 'fragment_retries': 3,  # Retry failed fragments
                 'extractor_retries': 3,  # Retry extractor failures
                 'file_access_retries': 3,  # Retry file access
+                'cookiesfrombrowser': ('chrome',),  # Use cookies from Chrome browser
             }
 
             # Download video
