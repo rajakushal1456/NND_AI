@@ -1030,7 +1030,24 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {str(e)}")
+                error_msg = str(e)
+
+                # Check if it's a bot detection error
+                if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "YouTube requires authentication. Please set up cookies:\n\n"
+                            "1. Install browser extension 'Get cookies.txt LOCALLY'\n"
+                            "2. Visit YouTube and login\n"
+                            "3. Export cookies to a file (cookies.txt)\n"
+                            "4. Set environment variable: YOUTUBE_COOKIES_FILE=/path/to/cookies.txt\n"
+                            "5. Restart the server\n\n"
+                            "See README.md for detailed instructions."
+                        )
+                    )
+                else:
+                    raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {error_msg}")
 
             # Read the downloaded video
             if not os.path.exists(output_path):
