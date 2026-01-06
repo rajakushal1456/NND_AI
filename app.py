@@ -986,22 +986,44 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = os.path.join(tmp_dir, 'video.mp4')
 
-            # Configure yt-dlp options with cookie-based authentication
+            # Configure yt-dlp options
             ydl_opts = {
-                'format': 'best[ext=mp4]/best',  # Prefer MP4 format
+                'format': 'worst[ext=mp4]/worst',  # Use worst quality to avoid bot detection and reduce download size
                 'outtmpl': output_path,
                 'quiet': True,
                 'no_warnings': True,
-                'nocheckcertificate': True,  # Bypass SSL certificate verification issues
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',  # Use browser-like user agent
-                'referer': 'https://www.youtube.com/',  # Set referer to YouTube
-                'socket_timeout': 30,  # Set socket timeout
-                'retries': 3,  # Retry failed downloads
-                'fragment_retries': 3,  # Retry failed fragments
-                'extractor_retries': 3,  # Retry extractor failures
-                'file_access_retries': 3,  # Retry file access
-                'cookiesfrombrowser': ('chrome',),  # Use cookies from Chrome browser
+                'nocheckcertificate': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'referer': 'https://www.youtube.com/',
+                'socket_timeout': 30,
+                'retries': 3,
+                'fragment_retries': 3,
+                'extractor_retries': 3,
+                'file_access_retries': 3,
+                # Server-friendly settings
+                'age_limit': None,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                    'Sec-Fetch-Mode': 'navigate',
+                },
             }
+
+            # Try to use browser cookies if available (for local development)
+            cookies_file = os.getenv('YOUTUBE_COOKIES_FILE')
+            if cookies_file and os.path.exists(cookies_file):
+                ydl_opts['cookiefile'] = cookies_file
+            else:
+                # Try browser cookies with fallback
+                try:
+                    # Check if running in a browser environment (local development)
+                    if os.path.exists(os.path.expanduser('~/.config/google-chrome')) or \
+                       os.path.exists(os.path.expanduser('~/Library/Application Support/Google/Chrome')) or \
+                       os.path.exists(os.path.expanduser(r'~\AppData\Local\Google\Chrome')):
+                        ydl_opts['cookiesfrombrowser'] = ('chrome',)
+                except:
+                    pass  # Silently fail and continue without cookies
 
             # Download video
             try:
