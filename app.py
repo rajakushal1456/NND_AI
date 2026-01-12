@@ -973,88 +973,81 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
     try:
         url = request.url
 
-        # Download video from YouTube using yt-dlp
+        # Download video from YouTube using pytubefix (server-friendly)
         try:
-            import yt_dlp
+            from pytubefix import YouTube
         except ImportError:
-            raise HTTPException(status_code=500, detail="yt-dlp library not installed. Please install yt-dlp.")
+            raise HTTPException(status_code=500, detail="pytubefix library not installed. Run: pip install pytubefix")
 
         import tempfile
         import os
 
-        # Create temporary directory
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            output_path = os.path.join(tmp_dir, 'video.mp4')
+        try:
+            # Initialize YouTube object with the URL
+            yt = YouTube(url)
 
-            # Configure yt-dlp options
-            ydl_opts = {
-                'format': 'worst[ext=mp4]/worst',  # Use worst quality to avoid bot detection and reduce download size
-                'outtmpl': output_path,
-                'quiet': True,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'referer': 'https://www.youtube.com/',
-                'socket_timeout': 30,
-                'retries': 3,
-                'fragment_retries': 3,
-                'extractor_retries': 3,
-                'file_access_retries': 3,
-                # Server-friendly settings
-                'age_limit': None,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-us,en;q=0.5',
-                    'Sec-Fetch-Mode': 'navigate',
-                },
-            }
+            # Get video info
+            print(f"Downloading: {yt.title}")
 
-            # Try to use browser cookies if available (for local development)
-            cookies_file = os.getenv('YOUTUBE_COOKIES_FILE')
-            if cookies_file and os.path.exists(cookies_file):
-                ydl_opts['cookiefile'] = cookies_file
+            # Get the lowest resolution MP4 stream to save bandwidth and time
+            # Filter for progressive streams (video + audio in one file)
+            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').asc().first()
+
+            if not stream:
+                # Fallback to any MP4 stream if progressive not available
+                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').asc().first()
+
+            if not stream:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No suitable video stream found. The video may be restricted or unavailable."
+                )
+
+            # Download to temporary directory
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                print(f"Downloading stream: {stream.resolution} - {stream.mime_type}")
+                output_path = stream.download(output_path=tmp_dir, filename='video.mp4')
+
+                # Read the downloaded video
+                if not os.path.exists(output_path):
+                    raise HTTPException(status_code=400, detail="Video download failed")
+
+                with open(output_path, 'rb') as f:
+                    video_bytes = f.read()
+
+                print(f"Successfully downloaded {len(video_bytes)} bytes")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            error_msg = str(e).lower()
+
+            # Provide helpful error messages based on the error type
+            if "unavailable" in error_msg or "private" in error_msg:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Video is unavailable, private, or has been removed. Please check the URL and try again."
+                )
+            elif "age" in error_msg or "restricted" in error_msg or "members-only" in error_msg:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Video is age-restricted or members-only. Please upload the video file directly instead."
+                )
+            elif "regex" in error_msg or "extract" in error_msg:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid YouTube URL format. Please provide a valid YouTube video URL."
+                )
+            elif "live" in error_msg:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Live streams are not supported. Please wait until the stream is archived or upload the video file."
+                )
             else:
-                # Try browser cookies with fallback
-                try:
-                    # Check if running in a browser environment (local development)
-                    if os.path.exists(os.path.expanduser('~/.config/google-chrome')) or \
-                       os.path.exists(os.path.expanduser('~/Library/Application Support/Google/Chrome')) or \
-                       os.path.exists(os.path.expanduser(r'~\AppData\Local\Google\Chrome')):
-                        ydl_opts['cookiesfrombrowser'] = ('chrome',)
-                except:
-                    pass  # Silently fail and continue without cookies
-
-            # Download video
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except Exception as e:
-                error_msg = str(e)
-
-                # Check if it's a bot detection error
-                if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
-                    raise HTTPException(
-                        status_code=403,
-                        detail=(
-                            "YouTube requires authentication. Please set up cookies:\n\n"
-                            "1. Install browser extension 'Get cookies.txt LOCALLY'\n"
-                            "2. Visit YouTube and login\n"
-                            "3. Export cookies to a file (cookies.txt)\n"
-                            "4. Set environment variable: YOUTUBE_COOKIES_FILE=/path/to/cookies.txt\n"
-                            "5. Restart the server\n\n"
-                            "See README.md for detailed instructions."
-                        )
-                    )
-                else:
-                    raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {error_msg}")
-
-            # Read the downloaded video
-            if not os.path.exists(output_path):
-                raise HTTPException(status_code=400, detail="Video download failed")
-
-            with open(output_path, 'rb') as f:
-                video_bytes = f.read()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unable to download video: {str(e)}. You can try uploading the video file directly instead."
+                )
 
         # Extract frames from video
         frames = extract_video_frames(video_bytes, max_frames=5)
