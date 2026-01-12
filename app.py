@@ -970,191 +970,24 @@ async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
 @app.post("/analyze-video-url")
 async def analyze_video_url(request: URLRequest) -> JSONResponse:
     """Analyze video from YouTube URL to determine if it's AI-generated or real"""
-    try:
-        url = request.url
 
-        # Download video from YouTube using pytubefix (server-friendly)
-        try:
-            from pytubefix import YouTube
-        except ImportError:
-            raise HTTPException(status_code=500, detail="pytubefix library not installed. Run: pip install pytubefix")
-
-        import tempfile
-        import os
-
-        try:
-            # Initialize YouTube object with the URL
-            yt = YouTube(url)
-
-            # Get video info
-            print(f"Downloading: {yt.title}")
-
-            # Get the lowest resolution MP4 stream to save bandwidth and time
-            # Filter for progressive streams (video + audio in one file)
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').asc().first()
-
-            if not stream:
-                # Fallback to any MP4 stream if progressive not available
-                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').asc().first()
-
-            if not stream:
-                raise HTTPException(
-                    status_code=400,
-                    detail="No suitable video stream found. The video may be restricted or unavailable."
-                )
-
-            # Download to temporary directory
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                print(f"Downloading stream: {stream.resolution} - {stream.mime_type}")
-                output_path = stream.download(output_path=tmp_dir, filename='video.mp4')
-
-                # Read the downloaded video
-                if not os.path.exists(output_path):
-                    raise HTTPException(status_code=400, detail="Video download failed")
-
-                with open(output_path, 'rb') as f:
-                    video_bytes = f.read()
-
-                print(f"Successfully downloaded {len(video_bytes)} bytes")
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            error_msg = str(e).lower()
-
-            # Provide helpful error messages based on the error type
-            if "unavailable" in error_msg or "private" in error_msg:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Video is unavailable, private, or has been removed. Please check the URL and try again."
-                )
-            elif "age" in error_msg or "restricted" in error_msg or "members-only" in error_msg:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Video is age-restricted or members-only. Please upload the video file directly instead."
-                )
-            elif "regex" in error_msg or "extract" in error_msg:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid YouTube URL format. Please provide a valid YouTube video URL."
-                )
-            elif "live" in error_msg:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Live streams are not supported. Please wait until the stream is archived or upload the video file."
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unable to download video: {str(e)}. You can try uploading the video file directly instead."
-                )
-
-        # Extract frames from video
-        frames = extract_video_frames(video_bytes, max_frames=5)
-
-        if not frames:
-            raise HTTPException(status_code=400, detail="Could not extract frames from video")
-
-        # Analyze each frame
-        frame_results = []
-        for i, frame_bytes in enumerate(frames):
-            # Encode frame to base64
-            frame_base64 = base64.b64encode(frame_bytes).decode("utf-8")
-
-            # Analyze frame using Claude API
-            response = client.messages.create(
-                model="claude-sonnet-4-5-20250929",
-                max_tokens=1000,
-                temperature=0,
-                system="You are an AI and Real video frame identifier. Respond ONLY with valid JSON.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": frame_base64
-                                }
-                            },
-                            {
-                                "type": "text",
-                                "text": VIDEO_PROMPT.format(frame_number=i+1, frame_length=len(frames))
-                            }
-                        ]
-                    }
-                ]
-            )
-
-            # Parse response
-            response_text = response.content[0].text
-
-            # Try to extract JSON if it's wrapped in markdown code blocks
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-
-            try:
-                frame_result = json.loads(response_text)
-                frame_results.append(frame_result)
-            except json.JSONDecodeError:
-                frame_results.append({
-                    "classification": "Analysis Complete",
-                    "confidence": 75,
-                    "reasoning": response_text
-                })
-
-        # Aggregate frame results
-        ai_count = sum(1 for r in frame_results if "ai" in r.get("classification", "").lower())
-        real_count = len(frame_results) - ai_count
-
-        # Calculate average confidence
-        avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
-
-        # Determine overall classification and confidence
-        if ai_count > 0:
-            # If ANY frame is AI-generated, classify as AI-Generated
-            classification = f"{int((ai_count / len(frame_results)) * 100)}% AI Generated"
-            confidence = int(avg_confidence)
-        else:
-            # All frames are real
-            classification = "0% AI Generated"
-            confidence = int(avg_confidence)
-
-        # Create key observations list (4-5 points)
-        key_observations = [
-            f"Analyzed {len(frame_results)} frames from the YouTube video",
-            f"{ai_count} AI-generated frames detected" if ai_count > 0 else "No AI-generated frames detected",
-            f"{real_count} real video frames detected"
-        ]
-
-        # Add specific observations from frame analyses
-        for r in frame_results[:2]:  # Get observations from first 2 frames
-            if r.get("reasoning"):
-                key_observations.append(r.get("reasoning")[:100])  # Limit length
-
-        # Limit to 5 observations
-        key_observations = key_observations[:5]
-
-        result = {
-            "classification": classification,
-            "confidence": min(100, max(0, confidence)),
-            "reasoning": f"Video analysis based on {len(frame_results)} sampled frames",
-            "details": key_observations
-        }
-
-        return JSONResponse(content={
-            "success": True,
-            "result": result
-        })
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
+    # YouTube has implemented aggressive bot detection that blocks all server-side libraries
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            "🚫 YouTube URL Analysis Unavailable\n\n"
+            "YouTube's bot protection currently blocks server-side video downloads.\n\n"
+            "📹 Simple Alternative:\n"
+            "1. Download the video to your device first\n"
+            "2. Use the 'Upload Video' button above to upload the file\n"
+            "3. We'll analyze it immediately!\n\n"
+            "💡 How to Download YouTube Videos:\n"
+            "• Desktop: Browser extensions like 'Video DownloadHelper'\n"
+            "• Websites: y2mate.com, savefrom.net, or similar services\n"
+            "• Mobile: YouTube Premium allows offline downloads\n\n"
+            "This way works 100% reliably and avoids YouTube restrictions! ✅"
+        )
+    )
 
 @app.get("/health")
 async def health_check():

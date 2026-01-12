@@ -1981,12 +1981,15 @@
                         <input type="file" id="videoFileInput" accept="video/*">
                     </div>
 
-                    <div class="text-divider">OR</div>
-
-                    <div class="text-input-area">
-                        <textarea id="videoUrlInput" placeholder="Paste a YouTube video URL here..." style="min-height: 60px;"></textarea>
+                    <div class="text-divider">
+                        <div style="text-align: center; padding: 16px; background: var(--warning-light); border-radius: 8px; margin: 16px 0;">
+                            <strong style="color: var(--warning);">⚠️ YouTube URL Analysis Temporarily Unavailable</strong>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                Due to YouTube's bot protection, please download videos first and upload the file directly above.
+                                <br>Works 100% reliably! ✅
+                            </p>
+                        </div>
                     </div>
-                    <button class="btn btn-primary analyze-btn" id="analyzeVideoUrlBtn" disabled>Analyze from URL</button>
 
                     <!-- Progress Bar -->
                     <div class="progress-container" id="videoProgressContainer">
@@ -3232,97 +3235,22 @@
             }
         });
 
-        // Video URL input handler
+        // YouTube URL feature disabled due to bot protection
+        // Commented out to prevent confusion - users should upload video files directly
+        /*
         videoUrlInput.addEventListener('input', (e) => {
             const url = e.target.value.trim();
             analyzeVideoUrlBtn.disabled = !url;
-
-            // Highlight the analyze button when URL is entered
             if (url) {
                 highlightButton(analyzeVideoUrlBtn);
                 removeHighlightOnClick(analyzeVideoUrlBtn);
             }
         });
 
-        // Analyze video from YouTube URL
         analyzeVideoUrlBtn.addEventListener('click', async () => {
-            const url = videoUrlInput.value.trim();
-            if (!url) {
-                showToast('No URL', 'Please enter a YouTube video URL', 'warning');
-                return;
-            }
-
-            showToast('Processing', 'Analyzing video from URL...', 'info', 2000);
-
-            // Show progress and timeline
-            videoProgress.show('Downloading video...');
-            videoProgress.setProgress(5, 'Downloading video...');
-            videoTimeline.show();
-            videoTimeline.clear();
-            videoTimeline.addStep('🔗', 'URL Provided', 'YouTube URL detected', 'completed');
-            videoTimeline.addStep('📥', 'Downloading', 'Fetching video from YouTube...', 'in-progress');
-            videoTimeline.addStep('🎞️', 'Extracting Frames', 'Processing video frames...', 'pending');
-            videoTimeline.addStep('🤖', 'AI Analysis', 'Analyzing frames with Claude AI (this may take a while)...', 'pending');
-            videoTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
-
-            videoPreviewSection.classList.add('active');
-            videoLoading.classList.add('active');
-            hidePlaceholder();
-            results.classList.remove('active');
-            showPlaceholder('Analyzing video...');
-
-            try {
-                videoProgress.setProgress(15, 'Downloading from YouTube...');
-                document.getElementById('videoLoadingText').textContent = 'Downloading video from YouTube...';
-
-                const response = await fetch('/analyze-video-url', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url: url })
-                });
-
-                const data = await response.json();
-
-                videoProgress.setProgress(25, 'Extracting frames...');
-                videoTimeline.updateStep(1, 'completed');
-                videoTimeline.updateStep(2, 'in-progress');
-                document.getElementById('videoLoadingText').textContent = 'Extracting frames...';
-
-                videoProgress.setProgress(35, 'Analyzing frames with AI (this takes most of the time)...');
-                videoTimeline.updateStep(2, 'completed');
-                videoTimeline.updateStep(3, 'in-progress');
-                document.getElementById('videoLoadingText').textContent = 'Analyzing frames with AI...';
-
-                if (data.success) {
-                    videoProgress.setProgress(100, 'Complete!');
-                    videoTimeline.updateStep(3, 'completed');
-                    videoTimeline.updateStep(4, 'completed');
-                    highlightedTextContainer.style.display = 'none';
-                    statisticsContainer.style.display = 'none';
-                    displayResults(data.result);
-                    showToast('Analysis Complete', 'Video analyzed successfully', 'success');
-                    setTimeout(() => {
-                        videoProgress.hide();
-                        videoTimeline.hide();
-                    }, 2000);
-                } else {
-                    showToast('Analysis Failed', data.detail || 'Unknown error', 'error');
-                    showPlaceholder('Unable to analyze the video. Please try again.');
-                    videoProgress.hide();
-                    videoTimeline.hide();
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showToast('Error', 'Failed to analyze video. Please try again.', 'error');
-                showPlaceholder('Error analyzing the video. Please try again.');
-                videoProgress.hide();
-                videoTimeline.hide();
-            } finally {
-                videoLoading.classList.remove('active');
-            }
+            showToast('Feature Unavailable', 'YouTube URL analysis is temporarily unavailable. Please download and upload the video file instead.', 'warning', 5000);
         });
+        */
     </script>
 </body>
 </html>
