@@ -271,6 +271,7 @@ async def analyze_image(file: UploadFile = File(...)) -> JSONResponse:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
 
 @app.post("/analyze-image-url")
@@ -970,24 +971,198 @@ async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
 @app.post("/analyze-video-url")
 async def analyze_video_url(request: URLRequest) -> JSONResponse:
     """Analyze video from YouTube URL to determine if it's AI-generated or real"""
+    try:
+        url = request.url
 
-    # YouTube has implemented aggressive bot detection that blocks all server-side libraries
-    raise HTTPException(
-        status_code=503,
-        detail=(
-            "🚫 YouTube URL Analysis Unavailable\n\n"
-            "YouTube's bot protection currently blocks server-side video downloads.\n\n"
-            "📹 Simple Alternative:\n"
-            "1. Download the video to your device first\n"
-            "2. Use the 'Upload Video' button above to upload the file\n"
-            "3. We'll analyze it immediately!\n\n"
-            "💡 How to Download YouTube Videos:\n"
-            "• Desktop: Browser extensions like 'Video DownloadHelper'\n"
-            "• Websites: y2mate.com, savefrom.net, or similar services\n"
-            "• Mobile: YouTube Premium allows offline downloads\n\n"
-            "This way works 100% reliably and avoids YouTube restrictions! ✅"
-        )
-    )
+        # Download video from YouTube using yt-dlp
+        try:
+            import yt_dlp
+        except ImportError:
+            raise HTTPException(status_code=500, detail="yt-dlp library not installed. Please install yt-dlp.")
+
+        import tempfile
+        import os
+
+        # Create temporary directory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, 'video.mp4')
+
+            # Configure yt-dlp options
+            ydl_opts = {
+                'format': 'worst[ext=mp4]/worst',  # Use worst quality to avoid bot detection and reduce download size
+                'outtmpl': output_path,
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'referer': 'https://www.youtube.com/',
+                'socket_timeout': 30,
+                'retries': 3,
+                'fragment_retries': 3,
+                'extractor_retries': 3,
+                'file_access_retries': 3,
+                # Server-friendly settings
+                'age_limit': None,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                    'Sec-Fetch-Mode': 'navigate',
+                },
+            }
+
+            # Try to use browser cookies if available (for local development)
+            cookies_file = os.getenv('YOUTUBE_COOKIES_FILE')
+            if cookies_file and os.path.exists(cookies_file):
+                ydl_opts['cookiefile'] = cookies_file
+            else:
+                # Try browser cookies with fallback
+                try:
+                    # Check if running in a browser environment (local development)
+                    if os.path.exists(os.path.expanduser('~/.config/google-chrome')) or \
+                       os.path.exists(os.path.expanduser('~/Library/Application Support/Google/Chrome')) or \
+                       os.path.exists(os.path.expanduser(r'~\AppData\Local\Google\Chrome')):
+                        ydl_opts['cookiesfrombrowser'] = ('chrome',)
+                except:
+                    pass  # Silently fail and continue without cookies
+
+            # Download video
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except Exception as e:
+                error_msg = str(e)
+
+                # Check if it's a bot detection error
+                if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "YouTube requires authentication. Please set up cookies:\n\n"
+                            "1. Install browser extension 'Get cookies.txt LOCALLY'\n"
+                            "2. Visit YouTube and login\n"
+                            "3. Export cookies to a file (cookies.txt)\n"
+                            "4. Set environment variable: YOUTUBE_COOKIES_FILE=/path/to/cookies.txt\n"
+                            "5. Restart the server\n\n"
+                            "See README.md for detailed instructions."
+                        )
+                    )
+                else:
+                    raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {error_msg}")
+
+            # Read the downloaded video
+            if not os.path.exists(output_path):
+                raise HTTPException(status_code=400, detail="Video download failed")
+
+            with open(output_path, 'rb') as f:
+                video_bytes = f.read()
+
+        # Extract frames from video
+        frames = extract_video_frames(video_bytes, max_frames=5)
+
+        if not frames:
+            raise HTTPException(status_code=400, detail="Could not extract frames from video")
+
+        # Analyze each frame
+        frame_results = []
+        for i, frame_bytes in enumerate(frames):
+            # Encode frame to base64
+            frame_base64 = base64.b64encode(frame_bytes).decode("utf-8")
+
+            # Analyze frame using Claude API
+            response = client.messages.create(
+                model="claude-sonnet-4-5-20250929",
+                max_tokens=1000,
+                temperature=0,
+                system="You are an AI and Real video frame identifier. Respond ONLY with valid JSON.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": frame_base64
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": VIDEO_PROMPT.format(frame_number=i+1, frame_length=len(frames))
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            # Parse response
+            response_text = response.content[0].text
+
+            # Try to extract JSON if it's wrapped in markdown code blocks
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+
+            try:
+                frame_result = json.loads(response_text)
+                frame_results.append(frame_result)
+            except json.JSONDecodeError:
+                frame_results.append({
+                    "classification": "Analysis Complete",
+                    "confidence": 75,
+                    "reasoning": response_text
+                })
+
+        # Aggregate frame results
+        ai_count = sum(1 for r in frame_results if "ai" in r.get("classification", "").lower())
+        real_count = len(frame_results) - ai_count
+
+        # Calculate average confidence
+        avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
+
+        # Determine overall classification and confidence
+        if ai_count > 0:
+            # If ANY frame is AI-generated, classify as AI-Generated
+            classification = f"{int((ai_count / len(frame_results)) * 100)}% AI Generated"
+            confidence = int(avg_confidence)
+        else:
+            # All frames are real
+            classification = "0% AI Generated"
+            confidence = int(avg_confidence)
+
+        # Create key observations list (4-5 points)
+        key_observations = [
+            f"Analyzed {len(frame_results)} frames from the YouTube video",
+            f"{ai_count} AI-generated frames detected" if ai_count > 0 else "No AI-generated frames detected",
+            f"{real_count} real video frames detected"
+        ]
+
+        # Add specific observations from frame analyses
+        for r in frame_results[:2]:  # Get observations from first 2 frames
+            if r.get("reasoning"):
+                key_observations.append(r.get("reasoning")[:100])  # Limit length
+
+        # Limit to 5 observations
+        key_observations = key_observations[:5]
+
+        result = {
+            "classification": classification,
+            "confidence": min(100, max(0, confidence)),
+            "reasoning": f"Video analysis based on {len(frame_results)} sampled frames",
+            "details": key_observations
+        }
+
+        return JSONResponse(content={
+            "success": True,
+            "result": result
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
 
 @app.get("/health")
 async def health_check():
