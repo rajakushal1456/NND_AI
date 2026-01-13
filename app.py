@@ -974,88 +974,109 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
     try:
         url = request.url
 
-        # Download video from YouTube using yt-dlp
-        try:
-            import yt_dlp
-        except ImportError:
-            raise HTTPException(status_code=500, detail="yt-dlp library not installed. Please install yt-dlp.")
-
+        # Download video from YouTube using yt-dlp subprocess with cookies
         import tempfile
         import os
+        import subprocess
+
+        # Path to cookies file (in project root)
+        cookies_file = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
+
+        # Check if cookies file exists
+        if not os.path.exists(cookies_file):
+            raise HTTPException(
+                status_code=400,
+                detail="YouTube cookies file not found. Please ensure 'youtube_cookies.txt' exists in the project root."
+            )
 
         # Create temporary directory
         with tempfile.TemporaryDirectory() as tmp_dir:
-            output_path = os.path.join(tmp_dir, 'video.mp4')
+            output_template = os.path.join(tmp_dir, 'video.%(ext)s')
 
-            # Configure yt-dlp options
-            ydl_opts = {
-                'format': 'worst[ext=mp4]/worst',  # Use worst quality to avoid bot detection and reduce download size
-                'outtmpl': output_path,
-                'quiet': True,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'referer': 'https://www.youtube.com/',
-                'socket_timeout': 30,
-                'retries': 3,
-                'fragment_retries': 3,
-                'extractor_retries': 3,
-                'file_access_retries': 3,
-                # Server-friendly settings
-                'age_limit': None,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-us,en;q=0.5',
-                    'Sec-Fetch-Mode': 'navigate',
-                },
-            }
+            # Build yt-dlp command with cookies (using python -m for portability)
+            cmd = [
+                'python', '-m', 'yt_dlp',
+                '--cookies', cookies_file,
+                '-f', 'worst[ext=mp4]/worst',  # Use lowest quality for faster download
+                '-o', output_template,
+                '--no-playlist',  # Don't download playlists
+                '--no-warnings',
+                url
+            ]
 
-            # Try to use browser cookies if available (for local development)
-            cookies_file = os.getenv('YOUTUBE_COOKIES_FILE')
-            if cookies_file and os.path.exists(cookies_file):
-                ydl_opts['cookiefile'] = cookies_file
-            else:
-                # Try browser cookies with fallback
-                try:
-                    # Check if running in a browser environment (local development)
-                    if os.path.exists(os.path.expanduser('~/.config/google-chrome')) or \
-                       os.path.exists(os.path.expanduser('~/Library/Application Support/Google/Chrome')) or \
-                       os.path.exists(os.path.expanduser(r'~\AppData\Local\Google\Chrome')):
-                        ydl_opts['cookiesfrombrowser'] = ('chrome',)
-                except:
-                    pass  # Silently fail and continue without cookies
-
-            # Download video
             try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except Exception as e:
-                error_msg = str(e)
+                # Run yt-dlp command
+                print(f"Running yt-dlp with cookies for URL: {url}")
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,  # 2 minute timeout
+                    check=True
+                )
 
-                # Check if it's a bot detection error
-                if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+                # Find the downloaded file
+                downloaded_files = [f for f in os.listdir(tmp_dir) if f.startswith('video.')]
+
+                if not downloaded_files:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Video download failed. No file was created."
+                    )
+
+                output_path = os.path.join(tmp_dir, downloaded_files[0])
+                print(f"Video downloaded: {output_path}")
+
+                # Read the downloaded video
+                if not os.path.exists(output_path):
+                    raise HTTPException(status_code=400, detail="Video file not found after download")
+
+                with open(output_path, 'rb') as f:
+                    video_bytes = f.read()
+
+                print(f"Successfully downloaded {len(video_bytes)} bytes")
+
+            except subprocess.TimeoutExpired:
+                raise HTTPException(
+                    status_code=408,
+                    detail="Video download timed out. The video may be too large or unavailable."
+                )
+            except subprocess.CalledProcessError as e:
+                error_msg = e.stderr if e.stderr else str(e)
+                print(f"yt-dlp error: {error_msg}")
+
+                if "Sign in" in error_msg or "bot" in error_msg.lower():
                     raise HTTPException(
                         status_code=403,
                         detail=(
-                            "YouTube requires authentication. Please set up cookies:\n\n"
+                            "YouTube requires authentication. Your cookies may have expired.\n\n"
+                            "Please update your cookies:\n"
                             "1. Install browser extension 'Get cookies.txt LOCALLY'\n"
-                            "2. Visit YouTube and login\n"
-                            "3. Export cookies to a file (cookies.txt)\n"
-                            "4. Set environment variable: YOUTUBE_COOKIES_FILE=/path/to/cookies.txt\n"
-                            "5. Restart the server\n\n"
-                            "See README.md for detailed instructions."
+                            "2. Visit YouTube and ensure you're logged in\n"
+                            "3. Export cookies and replace 'youtube_cookies.txt'\n"
+                            "4. Try again"
                         )
                     )
+                elif "unavailable" in error_msg.lower() or "private" in error_msg.lower():
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Video is unavailable, private, or has been removed."
+                    )
+                elif "age" in error_msg.lower() or "restricted" in error_msg.lower():
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Video is age-restricted. Please upload the video file directly."
+                    )
                 else:
-                    raise HTTPException(status_code=400, detail=f"Error downloading video from YouTube: {error_msg}")
-
-            # Read the downloaded video
-            if not os.path.exists(output_path):
-                raise HTTPException(status_code=400, detail="Video download failed")
-
-            with open(output_path, 'rb') as f:
-                video_bytes = f.read()
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to download video: {error_msg[:300]}"
+                    )
+            except FileNotFoundError:
+                raise HTTPException(
+                    status_code=500,
+                    detail="yt-dlp not found. Please ensure it's installed: pip install yt-dlp"
+                )
 
         # Extract frames from video
         frames = extract_video_frames(video_bytes, max_frames=5)
