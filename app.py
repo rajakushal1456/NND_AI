@@ -974,7 +974,7 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
     try:
         url = request.url
 
-        # Extract screenshots/thumbnails from YouTube using yt-dlp (no full video download!)
+        # Extract 5 frames from YouTube video at even intervals using yt-dlp + ffmpeg
         import tempfile
         import os
         import subprocess
@@ -990,37 +990,12 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 detail="YouTube cookies file not found. Please ensure 'youtube_cookies.txt' exists in the project root."
             )
 
-        # Create temporary directory for screenshots
+        # Create temporary directory for frames
         with tempfile.TemporaryDirectory() as tmp_dir:
-            screenshot_template = os.path.join(tmp_dir, 'screenshot_%(autonumber)03d.jpg')
-
-            # Build yt-dlp command to extract screenshots only (no video download!)
-            cmd = [
-                'python', '-m', 'yt_dlp',
-                '--cookies', cookies_file,
-                '--skip-download',  # DON'T download the video!
-                '--write-thumbnail',  # Get thumbnail
-                '--convert-thumbnails', 'jpg',
-                '--write-info-json',  # Get video info
-                '--no-playlist',
-                '--no-warnings',
-                '-o', screenshot_template,
-                url
-            ]
-
             try:
-                print(f"Extracting screenshots from YouTube URL (no video download): {url}")
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,  # Much faster - only 30 seconds
-                    check=True
-                )
-
-                # Also get 5 evenly spaced frames using ffmpeg if available
-                # First, get video info to calculate timestamps
-                info_cmd = [
+                # Step 1: Get video duration
+                print(f"Getting video info for: {url}")
+                duration_cmd = [
                     'python', '-m', 'yt_dlp',
                     '--cookies', cookies_file,
                     '--skip-download',
@@ -1029,73 +1004,106 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                     url
                 ]
 
-                info_result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=10)
-                duration = None
+                duration_result = subprocess.run(duration_cmd, capture_output=True, text=True, timeout=15, check=True)
+                duration = float(duration_result.stdout.strip())
+                print(f"Video duration: {duration} seconds")
 
-                if info_result.returncode == 0 and info_result.stdout.strip():
-                    try:
-                        duration = float(info_result.stdout.strip())
-                        print(f"Video duration: {duration} seconds")
-                    except:
-                        pass
+                if duration < 2:
+                    raise HTTPException(status_code=400, detail="Video is too short to analyze")
 
-                # Extract frames at different timestamps
-                if duration and duration > 10:
-                    # Extract 5 frames evenly spaced
-                    timestamps = [duration * i / 6 for i in range(1, 6)]  # Skip first 1/6 and last 1/6
+                # Step 2: Calculate 5 evenly spaced timestamps (skip first and last 10%)
+                start_offset = duration * 0.1
+                end_offset = duration * 0.9
+                interval = (end_offset - start_offset) / 4
 
-                    for i, timestamp in enumerate(timestamps):
-                        frame_cmd = [
-                            'python', '-m', 'yt_dlp',
-                            '--cookies', cookies_file,
-                            '--skip-download',
-                            '--exec', f'ffmpeg -ss {timestamp} -i {{}} -frames:v 1 {os.path.join(tmp_dir, f"frame_{i:03d}.jpg")}',
-                            '--no-warnings',
-                            url
-                        ]
-                        # Don't wait for all frames, use a quick approach
-                        # Just extract using the thumbnail for now
+                timestamps = [start_offset + (i * interval) for i in range(5)]
+                print(f"Extracting frames at timestamps: {[f'{t:.1f}s' for t in timestamps]}")
 
-                # Find all downloaded images
-                image_files = glob.glob(os.path.join(tmp_dir, '*.jpg')) + glob.glob(os.path.join(tmp_dir, '*.webp'))
-
-                if not image_files:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Failed to extract screenshots. No images were created."
-                    )
-
-                print(f"Found {len(image_files)} screenshot(s)")
-
-                # Read the images as frames
+                # Step 3: Extract frames at each timestamp using yt-dlp with ffmpeg
                 frames = []
-                for img_path in image_files[:5]:  # Use max 5 images
-                    with open(img_path, 'rb') as f:
-                        img_data = f.read()
+                for i, timestamp in enumerate(timestamps):
+                    frame_path = os.path.join(tmp_dir, f'frame_{i:02d}.jpg')
 
-                    # Convert to JPEG if needed
-                    from PIL import Image
-                    import io
+                    # Use yt-dlp to stream and extract frame at specific timestamp
+                    frame_cmd = [
+                        'python', '-m', 'yt_dlp',
+                        '--cookies', cookies_file,
+                        '-f', 'worst[ext=mp4]/worst',  # Use lowest quality for speed
+                        '--no-playlist',
+                        '--no-warnings',
+                        '--download-sections', f'*{timestamp}-{timestamp+1}',  # Download 1 second at timestamp
+                        '--downloader', 'ffmpeg',
+                        '--downloader-args', f'ffmpeg:-ss {timestamp} -t 1',
+                        '--postprocessor-args', f'ffmpeg:-frames:v 1',
+                        '--remux-video', 'mp4',
+                        '-o', frame_path.replace('.jpg', '.mp4'),
+                        url
+                    ]
 
-                    img = Image.open(io.BytesIO(img_data))
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
+                    # Simpler approach: Get video URL and use ffmpeg directly
+                    # Get the direct video URL first
+                    get_url_cmd = [
+                        'python', '-m', 'yt_dlp',
+                        '--cookies', cookies_file,
+                        '-f', 'worst[ext=mp4]/worst',
+                        '--get-url',
+                        '--no-warnings',
+                        url
+                    ]
 
-                    # Save as JPEG bytes
-                    img_buffer = io.BytesIO()
-                    img.save(img_buffer, format='JPEG', quality=85)
-                    frames.append(img_buffer.getvalue())
+                    url_result = subprocess.run(get_url_cmd, capture_output=True, text=True, timeout=10, check=True)
+                    video_url = url_result.stdout.strip()
 
-                print(f"Prepared {len(frames)} frames for analysis")
+                    if not video_url:
+                        raise HTTPException(status_code=400, detail="Could not get video stream URL")
+
+                    # Now use ffmpeg to extract frame at timestamp
+                    ffmpeg_cmd = [
+                        'ffmpeg',
+                        '-ss', str(timestamp),
+                        '-i', video_url,
+                        '-frames:v', '1',
+                        '-q:v', '2',
+                        '-y',  # Overwrite
+                        frame_path
+                    ]
+
+                    print(f"Extracting frame {i+1}/5 at {timestamp:.1f}s...")
+                    subprocess.run(ffmpeg_cmd, capture_output=True, timeout=15, check=True)
+
+                    # Read the frame
+                    if os.path.exists(frame_path):
+                        with open(frame_path, 'rb') as f:
+                            frame_data = f.read()
+
+                        # Convert to JPEG if needed
+                        from PIL import Image
+                        import io
+
+                        img = Image.open(io.BytesIO(frame_data))
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+
+                        # Save as JPEG bytes
+                        img_buffer = io.BytesIO()
+                        img.save(img_buffer, format='JPEG', quality=85)
+                        frames.append(img_buffer.getvalue())
+
+                        print(f"Frame {i+1} extracted successfully ({len(frame_data)} bytes)")
+
+                if not frames:
+                    raise HTTPException(status_code=400, detail="No frames were extracted")
+
+                print(f"Successfully extracted {len(frames)} frames for analysis")
 
             except subprocess.TimeoutExpired:
                 raise HTTPException(
                     status_code=408,
-                    detail="Screenshot extraction timed out."
+                    detail="Frame extraction timed out. The video may be too long or unavailable."
                 )
             except subprocess.CalledProcessError as e:
-                error_msg = e.stderr if e.stderr else str(e)
-                print(f"yt-dlp error: {error_msg}")
+                error_msg = e.stderr.decode() if e.stderr else str(e)
+                print(f"Error: {error_msg}")
 
                 if "Sign in" in error_msg or "bot" in error_msg.lower():
                     raise HTTPException(
@@ -1114,21 +1122,22 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                         status_code=400,
                         detail="Video is unavailable, private, or has been removed."
                     )
-                elif "age" in error_msg.lower() or "restricted" in error_msg.lower():
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Video is age-restricted. Please upload the video file directly."
-                    )
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Failed to extract screenshots: {error_msg[:300]}"
+                        detail=f"Failed to extract frames: {error_msg[:300]}"
                     )
-            except FileNotFoundError:
-                raise HTTPException(
-                    status_code=500,
-                    detail="yt-dlp not found. Please ensure it's installed: pip install yt-dlp"
-                )
+            except FileNotFoundError as e:
+                if 'ffmpeg' in str(e).lower():
+                    raise HTTPException(
+                        status_code=500,
+                        detail="ffmpeg not found. Please install ffmpeg: https://ffmpeg.org/download.html"
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="yt-dlp not found. Please ensure it's installed: pip install yt-dlp"
+                    )
 
         if not frames:
             raise HTTPException(status_code=400, detail="Could not extract frames from video")
