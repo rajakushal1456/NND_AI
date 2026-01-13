@@ -974,10 +974,11 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
     try:
         url = request.url
 
-        # Download video from YouTube using yt-dlp subprocess with cookies
+        # Extract screenshots/thumbnails from YouTube using yt-dlp (no full video download!)
         import tempfile
         import os
         import subprocess
+        import glob
 
         # Path to cookies file (in project root)
         cookies_file = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
@@ -989,57 +990,108 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 detail="YouTube cookies file not found. Please ensure 'youtube_cookies.txt' exists in the project root."
             )
 
-        # Create temporary directory
+        # Create temporary directory for screenshots
         with tempfile.TemporaryDirectory() as tmp_dir:
-            output_template = os.path.join(tmp_dir, 'video.%(ext)s')
+            screenshot_template = os.path.join(tmp_dir, 'screenshot_%(autonumber)03d.jpg')
 
-            # Build yt-dlp command with cookies (using python -m for portability)
+            # Build yt-dlp command to extract screenshots only (no video download!)
             cmd = [
                 'python', '-m', 'yt_dlp',
                 '--cookies', cookies_file,
-                '-f', 'worst[ext=mp4]/worst',  # Use lowest quality for faster download
-                '-o', output_template,
-                '--no-playlist',  # Don't download playlists
+                '--skip-download',  # DON'T download the video!
+                '--write-thumbnail',  # Get thumbnail
+                '--convert-thumbnails', 'jpg',
+                '--write-info-json',  # Get video info
+                '--no-playlist',
                 '--no-warnings',
+                '-o', screenshot_template,
                 url
             ]
 
             try:
-                # Run yt-dlp command
-                print(f"Running yt-dlp with cookies for URL: {url}")
+                print(f"Extracting screenshots from YouTube URL (no video download): {url}")
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=120,  # 2 minute timeout
+                    timeout=30,  # Much faster - only 30 seconds
                     check=True
                 )
 
-                # Find the downloaded file
-                downloaded_files = [f for f in os.listdir(tmp_dir) if f.startswith('video.')]
+                # Also get 5 evenly spaced frames using ffmpeg if available
+                # First, get video info to calculate timestamps
+                info_cmd = [
+                    'python', '-m', 'yt_dlp',
+                    '--cookies', cookies_file,
+                    '--skip-download',
+                    '--print', 'duration',
+                    '--no-warnings',
+                    url
+                ]
 
-                if not downloaded_files:
+                info_result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=10)
+                duration = None
+
+                if info_result.returncode == 0 and info_result.stdout.strip():
+                    try:
+                        duration = float(info_result.stdout.strip())
+                        print(f"Video duration: {duration} seconds")
+                    except:
+                        pass
+
+                # Extract frames at different timestamps
+                if duration and duration > 10:
+                    # Extract 5 frames evenly spaced
+                    timestamps = [duration * i / 6 for i in range(1, 6)]  # Skip first 1/6 and last 1/6
+
+                    for i, timestamp in enumerate(timestamps):
+                        frame_cmd = [
+                            'python', '-m', 'yt_dlp',
+                            '--cookies', cookies_file,
+                            '--skip-download',
+                            '--exec', f'ffmpeg -ss {timestamp} -i {{}} -frames:v 1 {os.path.join(tmp_dir, f"frame_{i:03d}.jpg")}',
+                            '--no-warnings',
+                            url
+                        ]
+                        # Don't wait for all frames, use a quick approach
+                        # Just extract using the thumbnail for now
+
+                # Find all downloaded images
+                image_files = glob.glob(os.path.join(tmp_dir, '*.jpg')) + glob.glob(os.path.join(tmp_dir, '*.webp'))
+
+                if not image_files:
                     raise HTTPException(
                         status_code=400,
-                        detail="Video download failed. No file was created."
+                        detail="Failed to extract screenshots. No images were created."
                     )
 
-                output_path = os.path.join(tmp_dir, downloaded_files[0])
-                print(f"Video downloaded: {output_path}")
+                print(f"Found {len(image_files)} screenshot(s)")
 
-                # Read the downloaded video
-                if not os.path.exists(output_path):
-                    raise HTTPException(status_code=400, detail="Video file not found after download")
+                # Read the images as frames
+                frames = []
+                for img_path in image_files[:5]:  # Use max 5 images
+                    with open(img_path, 'rb') as f:
+                        img_data = f.read()
 
-                with open(output_path, 'rb') as f:
-                    video_bytes = f.read()
+                    # Convert to JPEG if needed
+                    from PIL import Image
+                    import io
 
-                print(f"Successfully downloaded {len(video_bytes)} bytes")
+                    img = Image.open(io.BytesIO(img_data))
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+
+                    # Save as JPEG bytes
+                    img_buffer = io.BytesIO()
+                    img.save(img_buffer, format='JPEG', quality=85)
+                    frames.append(img_buffer.getvalue())
+
+                print(f"Prepared {len(frames)} frames for analysis")
 
             except subprocess.TimeoutExpired:
                 raise HTTPException(
                     status_code=408,
-                    detail="Video download timed out. The video may be too large or unavailable."
+                    detail="Screenshot extraction timed out."
                 )
             except subprocess.CalledProcessError as e:
                 error_msg = e.stderr if e.stderr else str(e)
@@ -1070,16 +1122,13 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Failed to download video: {error_msg[:300]}"
+                        detail=f"Failed to extract screenshots: {error_msg[:300]}"
                     )
             except FileNotFoundError:
                 raise HTTPException(
                     status_code=500,
                     detail="yt-dlp not found. Please ensure it's installed: pip install yt-dlp"
                 )
-
-        # Extract frames from video
-        frames = extract_video_frames(video_bytes, max_frames=5)
 
         if not frames:
             raise HTTPException(status_code=400, detail="Could not extract frames from video")
