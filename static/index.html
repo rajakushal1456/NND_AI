@@ -1954,7 +1954,16 @@
 
                     <div class="text-preview" id="textPreview" style="display: none;">
                         <div class="panel-title" style="margin-top:0; margin-bottom:8px;">Document Preview</div>
-                        <div class="text-preview-content" id="textPreviewContent"></div>
+                        <div class="text-preview-content" id="textPreviewContent">
+                            <!-- Document preview will be embedded here (PDF viewer, image, etc) -->
+                        </div>
+                        <div id="documentInfo" style="padding: 12px; background: var(--bg-secondary); border-radius: 8px; margin-top: 12px; display: none;">
+                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                <strong>Document:</strong> <span id="docFileName"></span><br>
+                                <strong>Type:</strong> <span id="docFileType"></span><br>
+                                <strong>Size:</strong> <span id="docFileSize"></span>
+                            </div>
+                        </div>
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeTextBtn" disabled>Analyze Text</button>
                     <div class="loading" id="textLoading" style="position: relative; margin-top: 16px; min-height: 60px;">
@@ -2450,7 +2459,8 @@
             textInput.value = '';
             textFileInput.value = '';
             textPreview.style.display = 'none';
-            textPreviewContent.textContent = '';
+            textPreviewContent.innerHTML = '';
+            document.getElementById('documentInfo').style.display = 'none';
             analyzeTextBtn.disabled = true;
             textLoading.classList.remove('active');
             docUrlInput.value = '';
@@ -2863,8 +2873,8 @@
             currentText = e.target.value.trim();
             analyzeTextBtn.disabled = !currentText;
             if (currentText) {
-                textPreview.style.display = 'block';
-                textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+                // Don't show preview for manually entered text - only for documents
+                // textPreview.style.display = 'none';
 
                 // Highlight the analyze button when text is entered
                 highlightButton(analyzeTextBtn);
@@ -2949,22 +2959,61 @@
                     textProgress.setProgress(100, 'Complete!');
                     textTimeline.updateStep(3, 'completed');
                     currentText = extractData.text;
-                    textInput.value = currentText;
+
+                    // Don't show extracted text in textarea
+                    // textInput.value = currentText;
+
+                    // Show document preview with embedded viewer
                     textPreview.style.display = 'block';
-                    textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+                    const fileURL = URL.createObjectURL(file);
+
+                    // Display document based on type
+                    if (fileExt === '.pdf') {
+                        // Embed PDF viewer
+                        textPreviewContent.innerHTML = `
+                            <iframe src="${fileURL}"
+                                    style="width: 100%; height: 500px; border: 1px solid var(--border); border-radius: 8px;"
+                                    type="application/pdf">
+                            </iframe>
+                        `;
+                    } else if (fileExt === '.txt') {
+                        // Show plain text in a scrollable div
+                        textPreviewContent.innerHTML = `
+                            <div style="max-height: 400px; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 0.9rem;">
+                                ${extractData.text.substring(0, 5000)}${extractData.text.length > 5000 ? '\n\n... (truncated for preview)' : ''}
+                            </div>
+                        `;
+                    } else {
+                        // For DOCX, PPT, PPTX - show document info since we can't preview directly in browser
+                        textPreviewContent.innerHTML = `
+                            <div style="padding: 32px; text-align: center; background: var(--bg-secondary); border-radius: 8px; border: 2px dashed var(--border);">
+                                <div style="font-size: 3rem; margin-bottom: 16px;">📄</div>
+                                <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 8px;">${file.name}</div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    Document loaded and ready for analysis<br>
+                                    <small>Text extracted: ${extractData.text.length} characters</small>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Show document info
+                    document.getElementById('documentInfo').style.display = 'block';
+                    document.getElementById('docFileName').textContent = file.name;
+                    document.getElementById('docFileType').textContent = fileExt.toUpperCase().replace('.', '');
+                    document.getElementById('docFileSize').textContent = (file.size / 1024).toFixed(2) + ' KB';
+
                     analyzeTextBtn.disabled = false;
-                    showToast('Text Extracted', 'Document text extracted successfully', 'success');
+                    showToast('Text Extracted', 'Document text extracted successfully. Starting analysis...', 'success');
 
-                    // Highlight analyze button after text extraction
-                    setTimeout(() => {
-                        highlightButton(analyzeTextBtn);
-                        removeHighlightOnClick(analyzeTextBtn);
-                    }, 2200);
-
+                    // Auto-execute analysis after extraction (like image upload)
                     setTimeout(() => {
                         textProgress.hide();
                         textTimeline.hide();
-                    }, 2000);
+
+                        // Automatically trigger analysis
+                        analyzeTextBtn.click();
+                    }, 1500);
                 } else {
                     showToast('Extraction Failed', extractData.error || 'Unknown error', 'error');
                     textProgress.hide();
@@ -3200,22 +3249,55 @@
                     textTimeline.updateStep(2, 'completed');
                     textTimeline.updateStep(3, 'completed');
                     currentText = data.text;
-                    textInput.value = currentText;
+
+                    // Don't show extracted text in textarea
+                    // textInput.value = currentText;
+
+                    // Show document preview
                     textPreview.style.display = 'block';
-                    textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+
+                    // For URL-loaded documents, show preview with iframe or document info
+                    const urlLower = url.toLowerCase();
+                    if (urlLower.endsWith('.pdf')) {
+                        // Embed PDF directly from URL
+                        textPreviewContent.innerHTML = `
+                            <iframe src="${url}"
+                                    style="width: 100%; height: 500px; border: 1px solid var(--border); border-radius: 8px;"
+                                    type="application/pdf">
+                            </iframe>
+                        `;
+                    } else {
+                        // For other document types from URL, show document info
+                        const fileName = url.split('/').pop().split('?')[0] || 'Document';
+                        textPreviewContent.innerHTML = `
+                            <div style="padding: 32px; text-align: center; background: var(--bg-secondary); border-radius: 8px; border: 2px dashed var(--border);">
+                                <div style="font-size: 3rem; margin-bottom: 16px;">🌐</div>
+                                <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 8px;">${fileName}</div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    Document loaded from URL<br>
+                                    <small>Text extracted: ${data.text.length} characters</small>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Show document info
+                    document.getElementById('documentInfo').style.display = 'block';
+                    document.getElementById('docFileName').textContent = url.split('/').pop().split('?')[0] || 'Document from URL';
+                    document.getElementById('docFileType').textContent = 'URL';
+                    document.getElementById('docFileSize').textContent = (data.text.length / 1024).toFixed(2) + ' KB';
+
                     analyzeTextBtn.disabled = false;
-                    showToast('Text Extracted', 'Document text extracted successfully', 'success');
+                    showToast('Text Extracted', 'Document text extracted successfully. Starting analysis...', 'success');
 
-                    // Highlight analyze button after text extraction from URL
-                    setTimeout(() => {
-                        highlightButton(analyzeTextBtn);
-                        removeHighlightOnClick(analyzeTextBtn);
-                    }, 2200);
-
+                    // Auto-execute analysis after extraction from URL (like image upload)
                     setTimeout(() => {
                         textProgress.hide();
                         textTimeline.hide();
-                    }, 2000);
+
+                        // Automatically trigger analysis
+                        analyzeTextBtn.click();
+                    }, 1500);
                 } else {
                     showToast('Extraction Failed', data.detail || 'Unknown error', 'error');
                     textProgress.hide();
