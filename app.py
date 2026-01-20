@@ -984,38 +984,91 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
 
     try:
         url = request.url
-        
+
+        # Path to cookies file (in project root)
+        cookies_file = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
+
         # Create temporary directory for video download
         with tempfile.TemporaryDirectory() as tmp_dir:
             try:
-                # Step 1: Download video using yt-dlp with browser cookies
+                # Step 1: Download video using yt-dlp
                 print(f"Downloading video for: {url}")
 
                 video_path = os.path.join(tmp_dir, 'video.mp4')
 
-                # Try multiple browsers in order of preference
-                browsers = ['chrome', 'edge', 'firefox', 'brave']
-                download_successful = False
-                last_error = None
-
-                for browser in browsers:
-                    try:
-                        print(f"Attempting download with {browser} cookies...")
-                        
-                        download_cmd = [
+                # Build download command - try multiple strategies
+                download_strategies = []
+                
+                # Strategy 1: With cookies (if file exists)
+                if os.path.exists(cookies_file):
+                    print("Using cookies file for authentication...")
+                    download_strategies.append({
+                        'name': 'cookies',
+                        'cmd': [
                             'yt-dlp',
-                            '--cookies-from-browser', browser,
+                            '--cookies', cookies_file,
                             '--extractor-args', 'youtube:player_client=android,web',
                             '-f', 'worst[ext=mp4]/worst',
                             '-o', video_path,
                             '--no-warnings',
                             '--no-playlist',
-                            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                             url
                         ]
+                    })
+                
+                # Strategy 2: Android client (no auth needed for most videos)
+                download_strategies.append({
+                    'name': 'android-client',
+                    'cmd': [
+                        'yt-dlp',
+                        '--extractor-args', 'youtube:player_client=android',
+                        '-f', 'worst[ext=mp4]/worst',
+                        '-o', video_path,
+                        '--no-warnings',
+                        '--no-playlist',
+                        url
+                    ]
+                })
+                
+                # Strategy 3: iOS client
+                download_strategies.append({
+                    'name': 'ios-client',
+                    'cmd': [
+                        'yt-dlp',
+                        '--extractor-args', 'youtube:player_client=ios',
+                        '-f', 'worst[ext=mp4]/worst',
+                        '-o', video_path,
+                        '--no-warnings',
+                        '--no-playlist',
+                        url
+                    ]
+                })
+                
+                # Strategy 4: Web client with age bypass
+                download_strategies.append({
+                    'name': 'web-bypass',
+                    'cmd': [
+                        'yt-dlp',
+                        '--extractor-args', 'youtube:player_client=web;skip=hls,dash',
+                        '--age-limit', '100',
+                        '-f', 'worst[ext=mp4]/worst',
+                        '-o', video_path,
+                        '--no-warnings',
+                        '--no-playlist',
+                        url
+                    ]
+                })
 
+                download_successful = False
+                last_error = None
+
+                for strategy in download_strategies:
+                    try:
+                        print(f"Trying strategy: {strategy['name']}...")
+                        
                         download_result = subprocess.run(
-                            download_cmd,
+                            strategy['cmd'],
                             capture_output=True,
                             text=True,
                             timeout=120,
@@ -1024,7 +1077,7 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                         
                         # Check if video was downloaded
                         if os.path.exists(video_path):
-                            print(f"✅ Successfully downloaded with {browser}")
+                            print(f"✅ Successfully downloaded with {strategy['name']}")
                             download_successful = True
                             break
                         else:
@@ -1032,45 +1085,64 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                             video_files = [f for f in os.listdir(tmp_dir) if f.endswith(('.mp4', '.webm', '.mkv'))]
                             if video_files:
                                 video_path = os.path.join(tmp_dir, video_files[0])
-                                print(f"✅ Successfully downloaded with {browser}")
+                                print(f"✅ Successfully downloaded with {strategy['name']}")
                                 download_successful = True
                                 break
                     
                     except subprocess.CalledProcessError as e:
                         last_error = e.stderr if e.stderr else str(e)
-                        print(f"❌ {browser} failed: {last_error}")
+                        print(f"❌ {strategy['name']} failed: {last_error[:200]}")
                         continue
                     except Exception as e:
                         last_error = str(e)
-                        print(f"❌ {browser} error: {last_error}")
+                        print(f"❌ {strategy['name']} error: {last_error[:200]}")
                         continue
 
-                # If all browsers failed, raise error
+                # If all strategies failed, provide helpful error
                 if not download_successful:
-                    error_msg = last_error if last_error else "All browsers failed"
+                    error_msg = last_error if last_error else "All download strategies failed"
                     
-                    if "Sign in" in error_msg or "bot" in error_msg.lower() or "429" in error_msg:
-                        raise HTTPException(
-                            status_code=403,
-                            detail=(
-                                "YouTube detected bot activity across all browsers.\n\n"
-                                "Solutions:\n"
-                                "1. Open YouTube in your browser and watch a video (any video)\n"
-                                "2. Make sure you're logged into YouTube\n"
-                                "3. Clear your browser cache and cookies, then log in again\n"
-                                "4. Try again in a few minutes\n\n"
-                                "Browsers tried: " + ", ".join(browsers)
+                    if "Sign in" in error_msg or "bot" in error_msg.lower():
+                        # This video requires authentication
+                        if not os.path.exists(cookies_file):
+                            raise HTTPException(
+                                status_code=403,
+                                detail=(
+                                    "This video requires YouTube authentication, but no cookies file was found.\n\n"
+                                    "To analyze age-restricted or private videos:\n"
+                                    "1. On your local machine, install browser extension 'Get cookies.txt LOCALLY'\n"
+                                    "2. Visit YouTube and ensure you're logged in\n"
+                                    "3. Export cookies as 'youtube_cookies.txt'\n"
+                                    "4. Upload the file to your server at the project root\n"
+                                    "5. Redeploy your application\n\n"
+                                    "Public videos should work without cookies."
+                                )
                             )
-                        )
+                        else:
+                            raise HTTPException(
+                                status_code=403,
+                                detail=(
+                                    "YouTube requires fresh authentication.\n\n"
+                                    "Your cookies may have expired. Please:\n"
+                                    "1. Export fresh cookies from your browser\n"
+                                    "2. Replace 'youtube_cookies.txt' on the server\n"
+                                    "3. Redeploy your application"
+                                )
+                            )
                     elif "unavailable" in error_msg.lower() or "private" in error_msg.lower():
                         raise HTTPException(
                             status_code=400,
                             detail="Video is unavailable, private, or has been removed."
                         )
+                    elif "age" in error_msg.lower() or "restricted" in error_msg.lower():
+                        raise HTTPException(
+                            status_code=403,
+                            detail="This video is age-restricted and requires authentication cookies."
+                        )
                     else:
                         raise HTTPException(
                             status_code=400,
-                            detail=f"Failed to download video from all browsers: {error_msg[:300]}"
+                            detail=f"Failed to download video: {error_msg[:300]}"
                         )
 
                 print(f"Video downloaded: {video_path}")
@@ -1223,7 +1295,6 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
-
 
 @app.get("/health")
 async def health_check():
