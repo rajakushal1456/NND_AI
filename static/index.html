@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>True Origin AI - AI Content Detector</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>CheckAI - AI Content Detector</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
         /* CSS Variables for Theming */
         :root[data-theme="light"] {
@@ -1321,11 +1323,25 @@
             box-shadow: var(--shadow-sm);
         }
 
-        .detail-item:nth-child(1) { animation-delay: 0.05s; }
-        .detail-item:nth-child(2) { animation-delay: 0.1s; }
-        .detail-item:nth-child(3) { animation-delay: 0.15s; }
-        .detail-item:nth-child(4) { animation-delay: 0.2s; }
-        .detail-item:nth-child(5) { animation-delay: 0.25s; }
+        .detail-item:nth-child(1) {
+            animation-delay: 0.05s;
+        }
+
+        .detail-item:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .detail-item:nth-child(3) {
+            animation-delay: 0.15s;
+        }
+
+        .detail-item:nth-child(4) {
+            animation-delay: 0.2s;
+        }
+
+        .detail-item:nth-child(5) {
+            animation-delay: 0.25s;
+        }
 
         /* Statistics Display */
         .statistics {
@@ -1570,6 +1586,7 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -1581,6 +1598,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -1588,18 +1606,35 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         @keyframes slideInLeft {
@@ -1607,6 +1642,7 @@
                 opacity: 0;
                 transform: translateX(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -1618,6 +1654,7 @@
                 opacity: 0;
                 transform: translateX(100px) scale(0.8);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0) scale(1);
@@ -1625,9 +1662,12 @@
         }
 
         @keyframes gradientShift {
-            0%, 100% {
+
+            0%,
+            100% {
                 background-position: 0% 50%;
             }
+
             50% {
                 background-position: 100% 50%;
             }
@@ -1637,16 +1677,20 @@
             0% {
                 transform: rotate(0deg);
             }
+
             100% {
                 transform: rotate(360deg);
             }
         }
 
         @keyframes pulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 opacity: 1;
                 transform: scale(1);
             }
+
             50% {
                 opacity: 0.8;
                 transform: scale(0.98);
@@ -1657,6 +1701,7 @@
             0% {
                 background-position: -1000px 0;
             }
+
             100% {
                 background-position: 1000px 0;
             }
@@ -1673,16 +1718,20 @@
             from {
                 width: 100%;
             }
+
             to {
                 width: 0%;
             }
         }
 
         @keyframes buttonBlink {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.7);
                 transform: scale(1);
             }
+
             50% {
                 box-shadow: 0 0 20px 5px rgba(255, 87, 34, 0.5);
                 transform: scale(1.02);
@@ -1690,9 +1739,12 @@
         }
 
         @keyframes gentlePulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 0 15px rgba(255, 87, 34, 0.4);
             }
+
             50% {
                 box-shadow: 0 0 25px rgba(255, 87, 34, 0.6);
             }
@@ -1818,13 +1870,14 @@
         }
     </style>
 </head>
+
 <body>
     <canvas id="particle-canvas"></canvas>
 
     <div class="container">
         <div class="header">
             <div class="header-content">
-                <h1>True Origin AI</h1>
+                <h1>CheckAI</h1>
                 <p>Advanced AI Content Detection for Images, Text, and Video</p>
             </div>
             <div class="theme-toggle" id="themeToggle">
@@ -1871,9 +1924,11 @@
                     <div class="text-divider">OR</div>
 
                     <div class="text-input-area">
-                        <textarea id="imageUrlInput" placeholder="Paste an image URL or base64 data here..." style="min-height: 60px;"></textarea>
+                        <textarea id="imageUrlInput" placeholder="Paste an image URL or base64 data here..."
+                            style="min-height: 60px;"></textarea>
                     </div>
-                    <button class="btn btn-primary analyze-btn" id="analyzeImageUrlBtn" disabled>Analyze from URL/Base64</button>
+                    <button class="btn btn-primary analyze-btn" id="analyzeImageUrlBtn" disabled>Analyze from
+                        URL/Base64</button>
 
                     <!-- Progress Bar -->
                     <div class="progress-container" id="imageProgressContainer">
@@ -1916,7 +1971,8 @@
                 <div class="card">
                     <div class="panel-title">Paste Text or Upload a Document</div>
                     <div class="text-input-area">
-                        <textarea id="textInput" placeholder="Paste your text here to analyze if it's AI-generated..."></textarea>
+                        <textarea id="textInput"
+                            placeholder="Paste your text here to analyze if it's AI-generated..."></textarea>
                     </div>
                     <div class="text-divider">OR</div>
                     <div class="text-file-upload" id="textFileUpload">
@@ -1929,9 +1985,12 @@
                     </div>
                     <div class="text-divider">OR</div>
                     <div class="text-input-area">
-                        <textarea id="docUrlInput" placeholder="Paste a document URL here (PDF, DOCX, Google Docs, etc.)..." style="min-height: 60px;"></textarea>
+                        <textarea id="docUrlInput"
+                            placeholder="Paste a document URL here (PDF, DOCX, Google Docs, etc.)..."
+                            style="min-height: 60px;"></textarea>
                     </div>
-                    <button class="btn btn-primary analyze-btn" id="analyzeDocUrlBtn" disabled style="margin-top: 8px;">Load from URL</button>
+                    <button class="btn btn-primary analyze-btn" id="analyzeDocUrlBtn" disabled
+                        style="margin-top: 8px;">Load from URL</button>
 
                     <!-- Progress Bar -->
                     <div class="progress-container" id="textProgressContainer">
@@ -1957,7 +2016,8 @@
                         <div class="text-preview-content" id="textPreviewContent"></div>
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeTextBtn" disabled>Analyze Text</button>
-                    <div class="loading" id="textLoading" style="position: relative; margin-top: 16px; min-height: 60px;">
+                    <div class="loading" id="textLoading"
+                        style="position: relative; margin-top: 16px; min-height: 60px;">
                         <div class="spinner-container">
                             <div class="spinner"></div>
                             <div class="spinner-inner"></div>
@@ -1984,9 +2044,11 @@
                     <div class="text-divider">OR</div>
 
                     <div class="text-input-area">
-                        <textarea id="videoUrlInput" placeholder="Paste a YouTube video URL here..." style="min-height: 60px;"></textarea>
+                        <textarea id="videoUrlInput" placeholder="Paste a YouTube video URL here..."
+                            style="min-height: 60px;"></textarea>
                     </div>
-                    <button class="btn btn-primary analyze-btn" id="analyzeVideoUrlBtn" disabled>Analyze from URL</button>
+                    <button class="btn btn-primary analyze-btn" id="analyzeVideoUrlBtn" disabled>Analyze from
+                        URL</button>
 
                     <!-- Progress Bar -->
                     <div class="progress-container" id="videoProgressContainer">
@@ -2063,7 +2125,8 @@
                                 <div id="detailsList"></div>
                             </div>
 
-                            <div class="highlighted-text-container" id="highlightedTextContainer" style="display: none;">
+                            <div class="highlighted-text-container" id="highlightedTextContainer"
+                                style="display: none;">
                                 <div class="highlighted-text-title">Highlighted Text Analysis</div>
                                 <div class="legend">
                                     <div class="legend-item">
@@ -2911,9 +2974,9 @@
                 return;
             }
 
-            showToast('File Selected', `Processing ${file.name}`, 'info', 2000);
+            showToast('File Selected', `Analyzing ${file.name}`, 'info', 2000);
 
-            // Show progress and timeline
+            // Show progress and timeline with analysis steps
             textProgress.show('Loading document...');
             textProgress.setProgress(10, 'Loading document...');
             textTimeline.show();
@@ -2921,7 +2984,8 @@
             textTimeline.addStep('📁', 'File Selected', `${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'completed');
             textTimeline.addStep('📤', 'Uploading', 'Sending to server...', 'in-progress');
             textTimeline.addStep('📄', 'Extracting Text', 'Parsing document...', 'pending');
-            textTimeline.addStep('✅', 'Complete', 'Text extracted', 'pending');
+            textTimeline.addStep('🤖', 'AI Analysis', 'Analyzing with Claude AI...', 'pending');
+            textTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             const formData = new FormData();
             formData.append('file', file);
@@ -2929,8 +2993,11 @@
             try {
                 textLoading.classList.add('active');
                 analyzeTextBtn.disabled = true;
+                hidePlaceholder();
+                results.classList.remove('active');
+                showPlaceholder('Processing document...');
 
-                textProgress.setProgress(40, 'Extracting text...');
+                textProgress.setProgress(30, 'Extracting text...');
                 textTimeline.updateStep(1, 'completed');
                 textTimeline.updateStep(2, 'in-progress');
 
@@ -2942,41 +3009,68 @@
 
                 const extractData = await extractResponse.json();
 
-                textProgress.setProgress(90, 'Finalizing...');
+                textProgress.setProgress(50, 'Text extracted...');
                 textTimeline.updateStep(2, 'completed');
 
                 if (extractData.success) {
-                    textProgress.setProgress(100, 'Complete!');
-                    textTimeline.updateStep(3, 'completed');
                     currentText = extractData.text;
                     textInput.value = currentText;
                     textPreview.style.display = 'block';
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
-                    analyzeTextBtn.disabled = false;
-                    showToast('Text Extracted', 'Document text extracted successfully', 'success');
 
-                    // Highlight analyze button after text extraction
-                    setTimeout(() => {
-                        highlightButton(analyzeTextBtn);
-                        removeHighlightOnClick(analyzeTextBtn);
-                    }, 2200);
+                    // Automatically analyze the extracted text
+                    textProgress.setProgress(60, 'Starting AI analysis...');
+                    textTimeline.updateStep(3, 'in-progress');
+                    showPlaceholder('Analyzing text...');
 
-                    setTimeout(() => {
+                    const analyzeResponse = await fetch('/analyze-text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ text: currentText })
+                    });
+
+                    const analyzeData = await analyzeResponse.json();
+
+                    textProgress.setProgress(90, 'Finalizing results...');
+
+                    if (analyzeData.success) {
+                        textProgress.setProgress(100, 'Complete!');
+                        textTimeline.updateStep(3, 'completed');
+                        textTimeline.updateStep(4, 'completed');
+                        displayResults(
+                            analyzeData.result,
+                            analyzeData.original_text || currentText,
+                            analyzeData.segments || null,
+                            analyzeData.statistics || null
+                        );
+                        showToast('Analysis Complete', 'Document analyzed successfully', 'success');
+                        setTimeout(() => {
+                            textProgress.hide();
+                            textTimeline.hide();
+                        }, 2000);
+                    } else {
+                        showToast('Analysis Failed', 'Unable to analyze the text', 'error');
+                        showPlaceholder('Unable to analyze the text. Please try again.');
                         textProgress.hide();
                         textTimeline.hide();
-                    }, 2000);
+                    }
                 } else {
                     showToast('Extraction Failed', extractData.error || 'Unknown error', 'error');
+                    showPlaceholder('Failed to extract text from document.');
                     textProgress.hide();
                     textTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
                 showToast('Error', 'Failed to process file. Please try again.', 'error');
+                showPlaceholder('Error processing the document. Please try again.');
                 textProgress.hide();
                 textTimeline.hide();
             } finally {
                 textLoading.classList.remove('active');
+                analyzeTextBtn.disabled = false;
             }
         }
 
@@ -3163,9 +3257,9 @@
                 return;
             }
 
-            showToast('Processing', 'Loading document from URL...', 'info', 2000);
+            showToast('Processing', 'Analyzing document from URL...', 'info', 2000);
 
-            // Show progress and timeline
+            // Show progress and timeline with analysis steps
             textProgress.show('Downloading document...');
             textProgress.setProgress(10, 'Downloading document...');
             textTimeline.show();
@@ -3173,13 +3267,17 @@
             textTimeline.addStep('🔗', 'URL Provided', 'Document URL detected', 'completed');
             textTimeline.addStep('📥', 'Downloading', 'Fetching document...', 'in-progress');
             textTimeline.addStep('📄', 'Extracting Text', 'Parsing document...', 'pending');
-            textTimeline.addStep('✅', 'Complete', 'Text extracted', 'pending');
+            textTimeline.addStep('🤖', 'AI Analysis', 'Analyzing with Claude AI...', 'pending');
+            textTimeline.addStep('✅', 'Complete', 'Results ready', 'pending');
 
             try {
                 textLoading.classList.add('active');
                 analyzeDocUrlBtn.disabled = true;
+                hidePlaceholder();
+                results.classList.remove('active');
+                showPlaceholder('Processing document...');
 
-                textProgress.setProgress(40, 'Extracting text...');
+                textProgress.setProgress(30, 'Extracting text...');
                 textTimeline.updateStep(1, 'completed');
                 textTimeline.updateStep(2, 'in-progress');
 
@@ -3193,42 +3291,69 @@
 
                 const data = await response.json();
 
-                textProgress.setProgress(90, 'Finalizing...');
+                textProgress.setProgress(50, 'Text extracted...');
+                textTimeline.updateStep(2, 'completed');
 
                 if (data.success) {
-                    textProgress.setProgress(100, 'Complete!');
-                    textTimeline.updateStep(2, 'completed');
-                    textTimeline.updateStep(3, 'completed');
                     currentText = data.text;
                     textInput.value = currentText;
                     textPreview.style.display = 'block';
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
-                    analyzeTextBtn.disabled = false;
-                    showToast('Text Extracted', 'Document text extracted successfully', 'success');
 
-                    // Highlight analyze button after text extraction from URL
-                    setTimeout(() => {
-                        highlightButton(analyzeTextBtn);
-                        removeHighlightOnClick(analyzeTextBtn);
-                    }, 2200);
+                    // Automatically analyze the extracted text
+                    textProgress.setProgress(60, 'Starting AI analysis...');
+                    textTimeline.updateStep(3, 'in-progress');
+                    showPlaceholder('Analyzing text...');
 
-                    setTimeout(() => {
+                    const analyzeResponse = await fetch('/analyze-text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ text: currentText })
+                    });
+
+                    const analyzeData = await analyzeResponse.json();
+
+                    textProgress.setProgress(90, 'Finalizing results...');
+
+                    if (analyzeData.success) {
+                        textProgress.setProgress(100, 'Complete!');
+                        textTimeline.updateStep(3, 'completed');
+                        textTimeline.updateStep(4, 'completed');
+                        displayResults(
+                            analyzeData.result,
+                            analyzeData.original_text || currentText,
+                            analyzeData.segments || null,
+                            analyzeData.statistics || null
+                        );
+                        showToast('Analysis Complete', 'Document analyzed successfully', 'success');
+                        setTimeout(() => {
+                            textProgress.hide();
+                            textTimeline.hide();
+                        }, 2000);
+                    } else {
+                        showToast('Analysis Failed', 'Unable to analyze the text', 'error');
+                        showPlaceholder('Unable to analyze the text. Please try again.');
                         textProgress.hide();
                         textTimeline.hide();
-                    }, 2000);
+                    }
                 } else {
                     showToast('Extraction Failed', data.detail || 'Unknown error', 'error');
+                    showPlaceholder('Failed to extract text from document.');
                     textProgress.hide();
                     textTimeline.hide();
                 }
             } catch (error) {
                 console.error('Error:', error);
                 showToast('Error', 'Failed to process URL. Please try again.', 'error');
+                showPlaceholder('Error processing the document. Please try again.');
                 textProgress.hide();
                 textTimeline.hide();
             } finally {
                 textLoading.classList.remove('active');
                 analyzeDocUrlBtn.disabled = false;
+                analyzeTextBtn.disabled = false;
             }
         });
 
@@ -3325,4 +3450,5 @@
         });
     </script>
 </body>
+
 </html>

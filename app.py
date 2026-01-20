@@ -1,6 +1,8 @@
 import base64
 import mimetypes
 import json
+import tempfile
+import subprocess
 from typing import Dict, List
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -13,8 +15,10 @@ import os
 from dotenv import load_dotenv
 import io
 import requests
+from PIL import Image
 from prompts import IMAGE_PROMPT,VIDEO_PROMPT, ANALYZE_TEXT_SEGMENT_PROMPT,ANALYZE_TEXT_CHUNK_PROMPT
 from config import SUPPORTED_MIME_TYPES,SUPPORTED_TEXT_TYPES,SUPPORTED_VIDEO_TYPES
+
 # Load environment variables
 load_dotenv()
 
@@ -38,6 +42,7 @@ ANTHROPIC_API_KEY = os.getenv(
     "ANTHROPIC_API_KEY"
 )
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
 
 
 class TextAnalysisRequest(BaseModel):
@@ -972,13 +977,13 @@ async def analyze_video(file: UploadFile = File(...)) -> JSONResponse:
 async def analyze_video_url(request: URLRequest) -> JSONResponse:
     """Analyze video from YouTube URL to determine if it's AI-generated or real"""
     try:
-        url = request.url
+        import cv2
+        import numpy as np
+    except ImportError:
+        raise HTTPException(status_code=500, detail="OpenCV library not installed. Please install opencv-python.")
 
-        # Extract 5 frames from YouTube video at even intervals using yt-dlp + ffmpeg
-        import tempfile
-        import os
-        import subprocess
-        import glob
+    try:
+        url = request.url
 
         # Path to cookies file (in project root)
         cookies_file = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
@@ -990,126 +995,103 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 detail="YouTube cookies file not found. Please ensure 'youtube_cookies.txt' exists in the project root."
             )
 
-        # Create temporary directory for frames
+        # Create temporary directory for video download
         with tempfile.TemporaryDirectory() as tmp_dir:
             try:
-                # Step 1: Get video duration
-                print(f"Getting video info for: {url}")
-                duration_cmd = [
-                    'python', '-m', 'yt_dlp',
+                # Step 1: Download video using yt-dlp (lowest quality to save time/bandwidth)
+                print(f"Downloading video for: {url}")
+
+                video_path = os.path.join(tmp_dir, 'video.mp4')
+
+                download_cmd = [
+                    'yt-dlp',
                     '--cookies', cookies_file,
-                    '--skip-download',
-                    '--print', 'duration',
+                    '--extractor-args', 'youtube:player_client=android',
+                    '-f', 'worst[ext=mp4]/worst',
+                    '-o', video_path,
                     '--no-warnings',
+                    '--no-playlist',
                     url
                 ]
 
-                duration_result = subprocess.run(duration_cmd, capture_output=True, text=True, timeout=15, check=True)
-                duration = float(duration_result.stdout.strip())
-                print(f"Video duration: {duration} seconds")
+
+                download_result = subprocess.run(
+                    download_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    check=True
+                )
+
+                # Check if video was downloaded
+                if not os.path.exists(video_path):
+                    # yt-dlp might have added extension, search for video file
+                    video_files = [f for f in os.listdir(tmp_dir) if f.endswith(('.mp4', '.webm', '.mkv'))]
+                    if video_files:
+                        video_path = os.path.join(tmp_dir, video_files[0])
+                    else:
+                        raise HTTPException(status_code=400, detail="Failed to download video")
+
+                print(f"Video downloaded: {video_path}")
+
+                # Step 2: Extract frames using OpenCV
+                cap = cv2.VideoCapture(video_path)
+                if not cap.isOpened():
+                    raise HTTPException(status_code=400, detail="Could not open downloaded video")
+
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                duration = total_frames / fps if fps > 0 else 0
+
+                print(f"Video duration: {duration:.1f} seconds, {total_frames} frames")
 
                 if duration < 2:
+                    cap.release()
                     raise HTTPException(status_code=400, detail="Video is too short to analyze")
 
-                # Step 2: Calculate 5 evenly spaced timestamps (skip first and last 10%)
-                start_offset = duration * 0.1
-                end_offset = duration * 0.9
-                interval = (end_offset - start_offset) / 4
+                # Calculate 5 evenly spaced frame positions
+                start_frame = int(total_frames * 0.1)
+                end_frame = int(total_frames * 0.9)
+                frame_interval = (end_frame - start_frame) // 4
+                frame_positions = [start_frame + (i * frame_interval) for i in range(5)]
 
-                timestamps = [start_offset + (i * interval) for i in range(5)]
-                print(f"Extracting frames at timestamps: {[f'{t:.1f}s' for t in timestamps]}")
+                print(f"Extracting frames at positions: {frame_positions}")
 
-                # Step 3: Extract frames at each timestamp using yt-dlp with ffmpeg
                 frames = []
-                for i, timestamp in enumerate(timestamps):
-                    frame_path = os.path.join(tmp_dir, f'frame_{i:02d}.jpg')
+                for i, frame_pos in enumerate(frame_positions):
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+                    ret, frame = cap.read()
 
-                    # Use yt-dlp to stream and extract frame at specific timestamp
-                    frame_cmd = [
-                        'python', '-m', 'yt_dlp',
-                        '--cookies', cookies_file,
-                        '-f', 'worst[ext=mp4]/worst',  # Use lowest quality for speed
-                        '--no-playlist',
-                        '--no-warnings',
-                        '--download-sections', f'*{timestamp}-{timestamp+1}',  # Download 1 second at timestamp
-                        '--downloader', 'ffmpeg',
-                        '--downloader-args', f'ffmpeg:-ss {timestamp} -t 1',
-                        '--postprocessor-args', f'ffmpeg:-frames:v 1',
-                        '--remux-video', 'mp4',
-                        '-o', frame_path.replace('.jpg', '.mp4'),
-                        url
-                    ]
+                    if ret and frame is not None:
+                        # Convert frame to JPEG bytes
+                        success, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                        if success:
+                            frames.append(buffer.tobytes())
+                            print(f"Frame {i+1}/5 extracted successfully")
+                    else:
+                        print(f"Warning: Could not extract frame {i+1}")
 
-                    # Simpler approach: Get video URL and use ffmpeg directly
-                    # Get the direct video URL first
-                    get_url_cmd = [
-                        'python', '-m', 'yt_dlp',
-                        '--cookies', cookies_file,
-                        '-f', 'worst[ext=mp4]/worst',
-                        '--get-url',
-                        '--no-warnings',
-                        url
-                    ]
-
-                    url_result = subprocess.run(get_url_cmd, capture_output=True, text=True, timeout=10, check=True)
-                    video_url = url_result.stdout.strip()
-
-                    if not video_url:
-                        raise HTTPException(status_code=400, detail="Could not get video stream URL")
-
-                    # Now use ffmpeg to extract frame at timestamp
-                    ffmpeg_cmd = [
-                        'ffmpeg',
-                        '-ss', str(timestamp),
-                        '-i', video_url,
-                        '-frames:v', '1',
-                        '-q:v', '2',
-                        '-y',  # Overwrite
-                        frame_path
-                    ]
-
-                    print(f"Extracting frame {i+1}/5 at {timestamp:.1f}s...")
-                    subprocess.run(ffmpeg_cmd, capture_output=True, timeout=15, check=True)
-
-                    # Read the frame
-                    if os.path.exists(frame_path):
-                        with open(frame_path, 'rb') as f:
-                            frame_data = f.read()
-
-                        # Convert to JPEG if needed
-                        from PIL import Image
-                        import io
-
-                        img = Image.open(io.BytesIO(frame_data))
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-
-                        # Save as JPEG bytes
-                        img_buffer = io.BytesIO()
-                        img.save(img_buffer, format='JPEG', quality=85)
-                        frames.append(img_buffer.getvalue())
-
-                        print(f"Frame {i+1} extracted successfully ({len(frame_data)} bytes)")
+                cap.release()
 
                 if not frames:
-                    raise HTTPException(status_code=400, detail="No frames were extracted")
+                    raise HTTPException(status_code=400, detail="No frames could be extracted from video")
 
                 print(f"Successfully extracted {len(frames)} frames for analysis")
 
             except subprocess.TimeoutExpired:
                 raise HTTPException(
                     status_code=408,
-                    detail="Frame extraction timed out. The video may be too long or unavailable."
+                    detail="Video download timed out. The video may be too long or unavailable."
                 )
             except subprocess.CalledProcessError as e:
-                error_msg = e.stderr.decode() if e.stderr else str(e)
-                print(f"Error: {error_msg}")
+                error_msg = e.stderr if e.stderr else str(e)
+                print(f"Command error: {error_msg}")
 
-                if "Sign in" in error_msg or "bot" in error_msg.lower():
+                if "Sign in" in error_msg or "bot" in error_msg.lower() or "429" in error_msg:
                     raise HTTPException(
                         status_code=403,
                         detail=(
-                            "YouTube requires authentication. Your cookies may have expired.\n\n"
+                            "YouTube requires authentication or detected bot activity. Your cookies may have expired.\n\n"
                             "Please update your cookies:\n"
                             "1. Install browser extension 'Get cookies.txt LOCALLY'\n"
                             "2. Visit YouTube and ensure you're logged in\n"
@@ -1125,30 +1107,23 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Failed to extract frames: {error_msg[:300]}"
+                        detail=f"Failed to download video: {error_msg[:300]}"
                     )
             except FileNotFoundError as e:
-                if 'ffmpeg' in str(e).lower():
+                cmd = str(e).lower()
+                if 'yt-dlp' in cmd or 'yt_dlp' in cmd:
                     raise HTTPException(
                         status_code=500,
-                        detail="ffmpeg not found. Please install ffmpeg: https://ffmpeg.org/download.html"
+                        detail="yt-dlp not found. Please install: pip install yt-dlp"
                     )
                 else:
-                    raise HTTPException(
-                        status_code=500,
-                        detail="yt-dlp not found. Please ensure it's installed: pip install yt-dlp"
-                    )
+                    raise
 
-        if not frames:
-            raise HTTPException(status_code=400, detail="Could not extract frames from video")
-
-        # Analyze each frame
+        # Analyze each frame with Claude
         frame_results = []
         for i, frame_bytes in enumerate(frames):
-            # Encode frame to base64
             frame_base64 = base64.b64encode(frame_bytes).decode("utf-8")
 
-            # Analyze frame using Claude API
             response = client.messages.create(
                 model="claude-sonnet-4-5-20250929",
                 max_tokens=1000,
@@ -1175,10 +1150,9 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                 ]
             )
 
-            # Parse response
             response_text = response.content[0].text
 
-            # Try to extract JSON if it's wrapped in markdown code blocks
+            # Extract JSON from response
             if "```json" in response_text:
                 response_text = response_text.split("```json")[1].split("```")[0].strip()
             elif "```" in response_text:
@@ -1194,36 +1168,28 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                     "reasoning": response_text
                 })
 
-        # Aggregate frame results
+        # Aggregate results
         ai_count = sum(1 for r in frame_results if "ai" in r.get("classification", "").lower())
         real_count = len(frame_results) - ai_count
-
-        # Calculate average confidence
         avg_confidence = sum(r.get("confidence", 50) for r in frame_results) / len(frame_results)
 
-        # Determine overall classification and confidence
         if ai_count > 0:
-            # If ANY frame is AI-generated, classify as AI-Generated
             classification = f"{int((ai_count / len(frame_results)) * 100)}% AI Generated"
             confidence = int(avg_confidence)
         else:
-            # All frames are real
             classification = "0% AI Generated"
             confidence = int(avg_confidence)
 
-        # Create key observations list (4-5 points)
         key_observations = [
             f"Analyzed {len(frame_results)} frames from the YouTube video",
             f"{ai_count} AI-generated frames detected" if ai_count > 0 else "No AI-generated frames detected",
             f"{real_count} real video frames detected"
         ]
 
-        # Add specific observations from frame analyses
-        for r in frame_results[:2]:  # Get observations from first 2 frames
+        for r in frame_results[:2]:
             if r.get("reasoning"):
-                key_observations.append(r.get("reasoning")[:100])  # Limit length
+                key_observations.append(r.get("reasoning")[:100])
 
-        # Limit to 5 observations
         key_observations = key_observations[:5]
 
         result = {
@@ -1233,14 +1199,14 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
             "details": key_observations
         }
 
-        return JSONResponse(content={
-            "success": True,
-            "result": result
-        })
+        return JSONResponse(content={"success": True, "result": result})
 
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
 
 @app.get("/health")
