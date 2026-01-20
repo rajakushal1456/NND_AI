@@ -2013,7 +2013,17 @@
 
                     <div class="text-preview" id="textPreview" style="display: none;">
                         <div class="panel-title" style="margin-top:0; margin-bottom:8px;">Document Preview</div>
-                        <div class="text-preview-content" id="textPreviewContent"></div>
+                        <div class="text-preview-content" id="textPreviewContent">
+                            <!-- Document preview will be embedded here (PDF viewer, image, etc) -->
+                        </div>
+                        <div id="documentInfo"
+                            style="padding: 12px; background: var(--bg-secondary); border-radius: 8px; margin-top: 12px; display: none;">
+                            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                                <strong>Document:</strong> <span id="docFileName"></span><br>
+                                <strong>Type:</strong> <span id="docFileType"></span><br>
+                                <strong>Size:</strong> <span id="docFileSize"></span>
+                            </div>
+                        </div>
                     </div>
                     <button class="btn btn-primary analyze-btn" id="analyzeTextBtn" disabled>Analyze Text</button>
                     <div class="loading" id="textLoading"
@@ -2513,7 +2523,8 @@
             textInput.value = '';
             textFileInput.value = '';
             textPreview.style.display = 'none';
-            textPreviewContent.textContent = '';
+            textPreviewContent.innerHTML = '';
+            document.getElementById('documentInfo').style.display = 'none';
             analyzeTextBtn.disabled = true;
             textLoading.classList.remove('active');
             docUrlInput.value = '';
@@ -2926,8 +2937,8 @@
             currentText = e.target.value.trim();
             analyzeTextBtn.disabled = !currentText;
             if (currentText) {
-                textPreview.style.display = 'block';
-                textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
+                // Don't show preview for manually entered text - only for documents
+                // textPreview.style.display = 'none';
 
                 // Highlight the analyze button when text is entered
                 highlightButton(analyzeTextBtn);
@@ -3014,7 +3025,11 @@
 
                 if (extractData.success) {
                     currentText = extractData.text;
-                    textInput.value = currentText;
+
+                    // Don't show extracted text in textarea
+                    // textInput.value = currentText;
+
+                    // Show document preview with embedded viewer
                     textPreview.style.display = 'block';
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
 
@@ -3296,7 +3311,11 @@
 
                 if (data.success) {
                     currentText = data.text;
-                    textInput.value = currentText;
+
+                    // Don't show extracted text in textarea
+                    // textInput.value = currentText;
+
+                    // Show document preview
                     textPreview.style.display = 'block';
                     textPreviewContent.textContent = currentText.substring(0, 500) + (currentText.length > 500 ? '...' : '');
 
