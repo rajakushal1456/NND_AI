@@ -984,53 +984,94 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
 
     try:
         url = request.url
-
-        # Path to cookies file (in project root)
-        cookies_file = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
-
-        # Check if cookies file exists
-        if not os.path.exists(cookies_file):
-            raise HTTPException(
-                status_code=400,
-                detail="YouTube cookies file not found. Please ensure 'youtube_cookies.txt' exists in the project root."
-            )
-
+        
         # Create temporary directory for video download
         with tempfile.TemporaryDirectory() as tmp_dir:
             try:
-                # Step 1: Download video using yt-dlp (lowest quality to save time/bandwidth)
+                # Step 1: Download video using yt-dlp with browser cookies
                 print(f"Downloading video for: {url}")
 
                 video_path = os.path.join(tmp_dir, 'video.mp4')
 
-                download_cmd = [
-                    'yt-dlp',
-                    '--cookies', cookies_file,
-                    '--extractor-args', 'youtube:player_client=android',
-                    '-f', 'worst[ext=mp4]/worst',
-                    '-o', video_path,
-                    '--no-warnings',
-                    '--no-playlist',
-                    url
-                ]
+                # Try multiple browsers in order of preference
+                browsers = ['chrome', 'edge', 'firefox', 'brave']
+                download_successful = False
+                last_error = None
 
+                for browser in browsers:
+                    try:
+                        print(f"Attempting download with {browser} cookies...")
+                        
+                        download_cmd = [
+                            'yt-dlp',
+                            '--cookies-from-browser', browser,
+                            '--extractor-args', 'youtube:player_client=android,web',
+                            '-f', 'worst[ext=mp4]/worst',
+                            '-o', video_path,
+                            '--no-warnings',
+                            '--no-playlist',
+                            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            url
+                        ]
 
-                download_result = subprocess.run(
-                    download_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                    check=True
-                )
+                        download_result = subprocess.run(
+                            download_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=120,
+                            check=True
+                        )
+                        
+                        # Check if video was downloaded
+                        if os.path.exists(video_path):
+                            print(f"✅ Successfully downloaded with {browser}")
+                            download_successful = True
+                            break
+                        else:
+                            # yt-dlp might have added extension, search for video file
+                            video_files = [f for f in os.listdir(tmp_dir) if f.endswith(('.mp4', '.webm', '.mkv'))]
+                            if video_files:
+                                video_path = os.path.join(tmp_dir, video_files[0])
+                                print(f"✅ Successfully downloaded with {browser}")
+                                download_successful = True
+                                break
+                    
+                    except subprocess.CalledProcessError as e:
+                        last_error = e.stderr if e.stderr else str(e)
+                        print(f"❌ {browser} failed: {last_error}")
+                        continue
+                    except Exception as e:
+                        last_error = str(e)
+                        print(f"❌ {browser} error: {last_error}")
+                        continue
 
-                # Check if video was downloaded
-                if not os.path.exists(video_path):
-                    # yt-dlp might have added extension, search for video file
-                    video_files = [f for f in os.listdir(tmp_dir) if f.endswith(('.mp4', '.webm', '.mkv'))]
-                    if video_files:
-                        video_path = os.path.join(tmp_dir, video_files[0])
+                # If all browsers failed, raise error
+                if not download_successful:
+                    error_msg = last_error if last_error else "All browsers failed"
+                    
+                    if "Sign in" in error_msg or "bot" in error_msg.lower() or "429" in error_msg:
+                        raise HTTPException(
+                            status_code=403,
+                            detail=(
+                                "YouTube detected bot activity across all browsers.\n\n"
+                                "Solutions:\n"
+                                "1. Open YouTube in your browser and watch a video (any video)\n"
+                                "2. Make sure you're logged into YouTube\n"
+                                "3. Clear your browser cache and cookies, then log in again\n"
+                                "4. Try again in a few minutes\n\n"
+                                "Browsers tried: " + ", ".join(browsers)
+                            )
+                        )
+                    elif "unavailable" in error_msg.lower() or "private" in error_msg.lower():
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Video is unavailable, private, or has been removed."
+                        )
                     else:
-                        raise HTTPException(status_code=400, detail="Failed to download video")
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Failed to download video from all browsers: {error_msg[:300]}"
+                        )
 
                 print(f"Video downloaded: {video_path}")
 
@@ -1083,32 +1124,6 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
                     status_code=408,
                     detail="Video download timed out. The video may be too long or unavailable."
                 )
-            except subprocess.CalledProcessError as e:
-                error_msg = e.stderr if e.stderr else str(e)
-                print(f"Command error: {error_msg}")
-
-                if "Sign in" in error_msg or "bot" in error_msg.lower() or "429" in error_msg:
-                    raise HTTPException(
-                        status_code=403,
-                        detail=(
-                            "YouTube requires authentication or detected bot activity. Your cookies may have expired.\n\n"
-                            "Please update your cookies:\n"
-                            "1. Install browser extension 'Get cookies.txt LOCALLY'\n"
-                            "2. Visit YouTube and ensure you're logged in\n"
-                            "3. Export cookies and replace 'youtube_cookies.txt'\n"
-                            "4. Try again"
-                        )
-                    )
-                elif "unavailable" in error_msg.lower() or "private" in error_msg.lower():
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Video is unavailable, private, or has been removed."
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Failed to download video: {error_msg[:300]}"
-                    )
             except FileNotFoundError as e:
                 cmd = str(e).lower()
                 if 'yt-dlp' in cmd or 'yt_dlp' in cmd:
@@ -1208,6 +1223,7 @@ async def analyze_video_url(request: URLRequest) -> JSONResponse:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error analyzing video: {str(e)}")
+
 
 @app.get("/health")
 async def health_check():
